@@ -20,10 +20,22 @@ import (
 )
 
 // Store original message info for callback handling
-var messageStore = make(map[string]*gotgbot.Message)        // callbackData -> original message
-var keyboardMessageStore = make(map[string]int)             // callbackData -> keyboard message ID
-var waitingForTopicName = make(map[int64]string)            // user_id -> callbackData waiting for topic name
-var originalMessageStore = make(map[int64]*gotgbot.Message) // user_id -> original message for topic creation
+var messageStore = make(map[string]*gotgbot.Message) // callbackData -> original message
+var keyboardMessageStore = make(map[string]int)      // callbackData -> keyboard message ID
+// Refactor: waitingForTopicName now stores context
+// user_id -> struct with chat ID, thread ID, and original message ID
+
+type TopicCreationContext struct {
+	ChatId        int64
+	ThreadId      int64
+	OriginalMsgId int64
+}
+
+var waitingForTopicName = make(map[int64]TopicCreationContext) // user_id -> context
+var originalMessageStore = make(map[int64]*gotgbot.Message)    // user_id -> original message for topic creation
+
+// Add a map to track recently moved messages
+var recentlyMovedMessages = make(map[int64]bool)
 
 // Global database instance
 var db *database.Database
@@ -251,6 +263,41 @@ func DeleteMessage(botToken string, chatId int64, messageId int) error {
 	return nil
 }
 
+// Add a helper to copy a message and return the new message ID
+func CopyMessageToTopicWithResult(botToken string, chatId int64, fromChatId int64, messageId int, messageThreadId int) (*gotgbot.Message, error) {
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/copyMessage", botToken)
+	requestBody := map[string]interface{}{
+		"chat_id":           chatId,
+		"from_chat_id":      fromChatId,
+		"message_id":        messageId,
+		"message_thread_id": messageThreadId,
+	}
+	bodyBytes, _ := json.Marshal(requestBody)
+	req, err := http.NewRequest("POST", url, strings.NewReader(string(bodyBytes)))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var result struct {
+		Ok     bool            `json:"ok"`
+		Result gotgbot.Message `json:"result"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+	if !result.Ok {
+		return nil, fmt.Errorf("failed to copy message: %s", string(body))
+	}
+	return &result.Result, nil
+}
+
 func main() {
 	_ = godotenv.Load()
 	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
@@ -318,11 +365,14 @@ func main() {
 						MessageThreadId: originalMsg.MessageThreadId,
 					})
 
-					// Store the callback data to wait for topic name
-					waitingForTopicName[update.CallbackQuery.From.Id] = callbackData
-					// Store the original message separately for topic creation
+					// Store the context for topic creation
+					waitingForTopicName[update.CallbackQuery.From.Id] = TopicCreationContext{
+						ChatId:        originalMsg.Chat.Id,
+						ThreadId:      int64(originalMsg.MessageThreadId),
+						OriginalMsgId: int64(originalMsg.MessageId),
+					}
+					// Store the original message for this user
 					originalMessageStore[update.CallbackQuery.From.Id] = originalMsg
-
 					// Delete the keyboard message
 					if keyboardMsgId, exists := keyboardMessageStore[callbackData]; exists {
 						DeleteMessage(botToken, originalMsg.Chat.Id, keyboardMsgId)
@@ -431,7 +481,11 @@ func main() {
 						ParseMode: "Markdown",
 					})
 					// Set flag to wait for topic name
-					waitingForTopicName[originalMsg.From.Id] = "create_topic"
+					waitingForTopicName[originalMsg.From.Id] = TopicCreationContext{
+						ChatId:        originalMsg.Chat.Id,
+						ThreadId:      int64(originalMsg.MessageThreadId),
+						OriginalMsgId: int64(originalMsg.MessageId),
+					}
 				} else if callbackData == "show_all_topics_menu" {
 					// Show all topics from database
 					topics, err := GetForumTopics(botToken, originalMsg.Chat.Id)
@@ -554,9 +608,14 @@ func main() {
 
 										// Add new topics with plus icon
 										for _, folder := range newTopics {
-											callbackData := folder + "_" + strconv.FormatInt(msg.MessageId, 10)
+											cleanFolder := strings.TrimSpace(folder)
+											// Skip suggestions that are too long or contain newlines
+											if len(cleanFolder) == 0 || len(cleanFolder) > 50 || strings.Contains(cleanFolder, "\n") {
+												continue
+											}
+											callbackData := cleanFolder + "_" + strconv.FormatInt(msg.MessageId, 10)
 											messageStore[callbackData] = msg
-											rows = append(rows, []gotgbot.InlineKeyboardButton{{Text: "➕ " + folder, CallbackData: callbackData}})
+											rows = append(rows, []gotgbot.InlineKeyboardButton{{Text: "➕ " + cleanFolder, CallbackData: callbackData}})
 										}
 
 										// Add create new folder option
@@ -705,6 +764,21 @@ func main() {
 
 			// Handle messages
 			if update.Message != nil {
+				// Only run AI suggestions for General topic (thread 0)
+				if update.Message.MessageThreadId != 0 {
+					log.Printf("Skipping AI for non-General topic: thread %d", update.Message.MessageThreadId)
+					continue
+				}
+				if recentlyMovedMessages[update.Message.MessageId] {
+					log.Printf("Skipping AI for recently moved message: %d", update.Message.MessageId)
+					delete(recentlyMovedMessages, update.Message.MessageId)
+					continue
+				}
+				// Fallback: skip AI for first message in a new topic with empty text
+				if update.Message.MessageThreadId != 0 && strings.TrimSpace(update.Message.Text) == "" && update.Message.MessageId < 10 {
+					log.Printf("Skipping AI for first message in new topic (empty text): %d", update.Message.MessageId)
+					continue
+				}
 				log.Printf("Received message: %s (ChatType: %s, ThreadId: %d)", update.Message.Text, update.Message.Chat.Type, update.Message.MessageThreadId)
 
 				// Check if the message mentions the bot (handle both possible usernames)
@@ -725,51 +799,69 @@ func main() {
 				}
 
 				// Check if user is waiting to provide a topic name
-				if waitingType, waiting := waitingForTopicName[update.Message.From.Id]; waiting {
-					if waitingType == "create_topic" {
-						// User is creating a new topic
-						topicName := strings.TrimSpace(update.Message.Text)
-						if topicName == "" {
-							bot.SendMessage(update.Message.Chat.Id, "❌ Topic name cannot be empty. Please try again.", &gotgbot.SendMessageOpts{})
-							continue
-						}
-
-						// Check if topic already exists
-						topics, err := GetForumTopics(botToken, update.Message.Chat.Id)
-						if err == nil {
-							for _, topic := range topics {
-								if strings.EqualFold(topic.Name, topicName) {
-									bot.SendMessage(update.Message.Chat.Id, "❌ A topic with this name already exists. Please choose a different name.", &gotgbot.SendMessageOpts{})
-									delete(waitingForTopicName, update.Message.From.Id)
-									continue
-								}
-							}
-						}
-
-						// Create the topic
-						_, err = bot.CreateForumTopic(update.Message.Chat.Id, topicName, &gotgbot.CreateForumTopicOpts{})
-						if err != nil {
-							log.Printf("Error creating topic: %v", err)
-							bot.SendMessage(update.Message.Chat.Id, "❌ Failed to create topic. Please try again.", &gotgbot.SendMessageOpts{})
-							delete(waitingForTopicName, update.Message.From.Id)
-							continue
-						}
-
-						// Success message
-						successMsg := fmt.Sprintf("✅ **Topic Created Successfully!**\n\n📁 **Topic Name:** %s\n\nYou can now send messages and the bot will suggest this topic when relevant.", topicName)
-						bot.SendMessage(update.Message.Chat.Id, successMsg, &gotgbot.SendMessageOpts{
-							ParseMode: "Markdown",
-						})
-
-						// Auto-delete success message after 1 minute
-						go func(msgId int64, chatId int64) {
-							time.Sleep(1 * time.Minute)
-							DeleteMessage(botToken, chatId, int(msgId))
-						}(int64(update.Message.MessageId), update.Message.Chat.Id)
-
-						delete(waitingForTopicName, update.Message.From.Id)
+				if ctx, waiting := waitingForTopicName[update.Message.From.Id]; waiting {
+					topicName := strings.TrimSpace(update.Message.Text)
+					if topicName == "" {
+						bot.SendMessage(update.Message.Chat.Id, "❌ Topic name cannot be empty. Please try again.", &gotgbot.SendMessageOpts{})
 						continue
 					}
+					// Check if topic already exists
+					topics, err := GetForumTopics(botToken, ctx.ChatId)
+					if err == nil {
+						exists := false
+						for _, topic := range topics {
+							if strings.EqualFold(topic.Name, topicName) {
+								exists = true
+								break
+							}
+						}
+						if exists {
+							bot.SendMessage(ctx.ChatId, "❌ A topic with this name already exists. Please choose a different name.", &gotgbot.SendMessageOpts{})
+							delete(waitingForTopicName, update.Message.From.Id)
+							delete(originalMessageStore, update.Message.From.Id)
+							continue
+						}
+					}
+					// Create the topic in the correct chat/thread
+					newTopic, err := CreateForumTopic(botToken, ctx.ChatId, topicName)
+					if err != nil {
+						log.Printf("Error creating topic: %v", err)
+						bot.SendMessage(ctx.ChatId, "❌ Failed to create topic. Please try again.", &gotgbot.SendMessageOpts{})
+						delete(waitingForTopicName, update.Message.From.Id)
+						delete(originalMessageStore, update.Message.From.Id)
+						continue
+					}
+					// After creating the topic and before copying the original user message, send the topic name as the first message in the new topic
+					if newTopic != nil {
+						_, err := bot.SendMessage(ctx.ChatId, newTopic.Name, &gotgbot.SendMessageOpts{
+							MessageThreadId: int64(newTopic.MessageThreadId),
+						})
+						if err != nil {
+							log.Printf("Error sending topic name as first message: %v", err)
+						}
+					}
+					// Copy the original user message to the new topic
+					if origMsg, ok := originalMessageStore[update.Message.From.Id]; ok && newTopic != nil {
+						// Copy the message and get the new message ID
+						copyResp, err := CopyMessageToTopicWithResult(botToken, ctx.ChatId, origMsg.Chat.Id, int(origMsg.MessageId), newTopic.MessageThreadId)
+						if err != nil {
+							log.Printf("Error copying message to new topic: %v", err)
+						} else {
+							DeleteMessage(botToken, origMsg.Chat.Id, int(origMsg.MessageId))
+							// Mark the new message as recently moved
+							log.Printf("Marking message as recently moved: %d", copyResp.MessageId)
+							recentlyMovedMessages[copyResp.MessageId] = true
+							// Send success message in General topic (thread 0)
+							bot.SendMessage(ctx.ChatId, "✅ Message successfully moved to the new topic!", &gotgbot.SendMessageOpts{
+								MessageThreadId: 0,
+							})
+						}
+					}
+					// Clean up state
+					delete(waitingForTopicName, update.Message.From.Id)
+					delete(originalMessageStore, update.Message.From.Id)
+					// Prevent further processing of this message
+					continue
 				}
 
 				// Handle commands and regular messages
@@ -938,9 +1030,14 @@ func main() {
 
 								// Add new topics with plus icon
 								for _, folder := range newTopics {
-									callbackData := folder + "_" + strconv.FormatInt(msg.MessageId, 10)
+									cleanFolder := strings.TrimSpace(folder)
+									// Skip suggestions that are too long or contain newlines
+									if len(cleanFolder) == 0 || len(cleanFolder) > 50 || strings.Contains(cleanFolder, "\n") {
+										continue
+									}
+									callbackData := cleanFolder + "_" + strconv.FormatInt(msg.MessageId, 10)
 									messageStore[callbackData] = msg
-									rows = append(rows, []gotgbot.InlineKeyboardButton{{Text: "➕ " + folder, CallbackData: callbackData}})
+									rows = append(rows, []gotgbot.InlineKeyboardButton{{Text: "➕ " + cleanFolder, CallbackData: callbackData}})
 								}
 
 								// Add create new folder option
