@@ -1,2 +1,18 @@
-bot.log
-bot.db 
+.idea/
+clean-cache.sh
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.bak
+*.tmp
+# Go build artifacts
+*.exe
+*.out
+*.test
+# Logs
+*.log
+# Environment files
+.env
+.env.* 
