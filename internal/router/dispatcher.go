@@ -71,7 +71,7 @@ func (d *Dispatcher) handleMessage(update *gotgbot.Update) error {
 	}
 
 	// Check if user is waiting to provide a topic name
-	if d.callbackHandlers.WaitingForTopicName[update.Message.From.Id].ChatId != 0 {
+	if d.callbackHandlers.IsWaitingForTopicName(update.Message.From.Id) {
 		log.Printf("[Dispatcher] User is waiting for topic name, routing to topic name handler")
 		return d.callbackHandlers.HandleTopicNameEntry(update)
 	}
@@ -148,7 +148,7 @@ func (d *Dispatcher) IsNewTopicPrompt(update *gotgbot.Update) bool {
 	if update.Message == nil {
 		return false
 	}
-	return d.callbackHandlers.WaitingForTopicName[update.Message.From.Id].ChatId != 0
+	return d.callbackHandlers.IsWaitingForTopicName(update.Message.From.Id)
 }
 
 // IsMessageInGeneralTopic checks if the message is in the General topic
@@ -172,7 +172,7 @@ func (d *Dispatcher) SendUnknownActionNotice(update *gotgbot.Update) error {
 		return nil
 	}
 
-	_, err := d.messageHandlers.MessageService.SendMessage(chatID, "❓ Unknown action. Please try again.", nil)
+	_, err := d.messageHandlers.CommandHandlers.MessageService.SendMessage(chatID, "❓ Unknown action. Please try again.", nil)
 	if err != nil {
 		log.Printf("[Dispatcher] Error sending unknown action notice: %v", err)
 	}
