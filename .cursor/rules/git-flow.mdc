@@ -1,0 +1,13 @@
+---
+alwaysApply: true
+description: Git Flow branching model for GameHub project
+rules:
+  - The `main` branch is always stable and production-ready.
+  - The `develop` branch is used for active development.
+  - Use feature branches from `develop` for new features (e.g., `feature/uno-game-ui`, `feature/telegram-webapp-integration`).
+  - Use `release/*` branches for pre-production staging.
+  - Use `hotfix/*` branches from `main` for urgent fixes.
+  - Commit messages should follow conventional format (e.g., `feat: add uno game board`, `fix: handle wild card logic bug`).
+  - Merge feature branches back into `develop` via pull requests.
+  - Never commit directly to `main` or `develop` unless part of a release.
+---
