@@ -23,4 +23,4 @@ jobs:
           script: |
             cd /opt/savemessage_telegram
             git pull origin main
-            bash restart_bot.sh 
+            sudo systemctl restart telegram-bot 
