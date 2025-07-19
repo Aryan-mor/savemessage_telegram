@@ -764,6 +764,21 @@ func main() {
 
 			// Handle messages
 			if update.Message != nil {
+				// Check if the bot was just added to a group
+				botJustJoined := false
+				if update.Message.NewChatMembers != nil && len(update.Message.NewChatMembers) > 0 {
+					for _, member := range update.Message.NewChatMembers {
+						if member.Id == bot.User.Id {
+							botJustJoined = true
+							break
+						}
+					}
+				}
+				if botJustJoined {
+					welcome := "It helps you organize your saved messages using Topics and smart suggestions — without using any commands.\nYou can categorize, edit, and retrieve your notes easily with inline buttons.\n\n🛡️ 100% private: all your content stays inside Telegram.\n\nJust write — we’ll handle the rest.\n\nFor more info, send /help."
+					bot.SendMessage(update.Message.Chat.Id, welcome, &gotgbot.SendMessageOpts{})
+					continue
+				}
 				// Only run AI suggestions for General topic (thread 0)
 				if update.Message.MessageThreadId != 0 {
 					log.Printf("Skipping AI for non-General topic: thread %d", update.Message.MessageThreadId)
