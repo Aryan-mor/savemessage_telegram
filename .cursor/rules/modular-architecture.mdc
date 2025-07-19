@@ -1,0 +1,73 @@
+---
+# Modular AI Telegram Bot Architecture Rules
+
+## ✅ 1. Functional Isolation
+
+Each key behavior should be implemented as a **dedicated function** with a single purpose:
+
+- `DeleteMessage(chatID, messageID)`  
+- `RequestTopicName(chatID, originalMessageID)`  
+- `CreateNewTopic(chatID, topicName)`  
+- `SuggestCategories(messageText) -> []string`  
+- `MoveMessageToTopic(originalMsgID, targetTopicID)`  
+- `SendEditPrompt(originalMsgID)`
+
+All these functions should be reusable, predictable, and independently testable.
+
+## ✅ 2. Handler Separation by User Flow
+
+Create **separate handlers** for user paths such as:
+
+- Selecting an existing folder from suggestions  
+  → `HandleExistingTopicSelection()`
+
+- Choosing to create a new folder from AI suggestion  
+  → `HandleNewTopicCreationRequest()`
+
+- Typing the topic name after being prompted  
+  → `HandleNewTopicNameEntry()`
+
+- Editing a message by sending `Edit:[ID] new text`  
+  → `HandleEditRequest()`
+
+This keeps business logic traceable, debuggable, and scalable.
+
+## ✅ 3. Command/Event Routing
+
+Set up a router or dispatcher to route incoming updates:
+
+```go
+func HandleUpdate(update tgbotapi.Update) {
+    switch {
+    case isEditRequest(update):
+        HandleEditRequest(update)
+    case isTopicSelection(update):
+        HandleExistingTopicSelection(update)
+    case isNewTopicPrompt(update):
+        HandleNewTopicNameEntry(update)
+    case isMessageInGeneralTopic(update):
+        StartAICategorization(update)
+    default:
+        SendUnknownActionNotice(update)
+    }
+}
+```
+
+## ✅ 4. Architecture Goals
+
+- Respect clean architecture / separation of concerns
+- Use clear package boundaries: handlers/, services/, ai/, utils/
+- All messages, callbacks, and responses should go through a central dispatcher
+- All business logic should be inside small, focused services
+- No logic inside main.go except setup
+
+## 🧪 Additional Notes
+
+- Always use logging for every handler entry and exit
+- Future-proof the code for new interaction types (search, tagging, etc.)
+- No hard-coded text: use constants or i18n struct
+- No message or user data should be saved in storage (privacy-first)
+description:
+globs:
+alwaysApply: false
+---

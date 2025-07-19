@@ -698,41 +698,59 @@ func main() {
 
 						// Extract topic name (everything except the last part which is message ID)
 						topicName := strings.Join(parts[:len(parts)-1], "_")
+						log.Printf("[DEBUG] Topic selection callback: topicName='%s', callbackData='%s'", topicName, callbackData)
 
 						// Find the topic in the database
 						topics, err := GetForumTopics(botToken, originalMsg.Chat.Id)
 						if err != nil {
-							log.Printf("Error getting topics: %v", err)
+							log.Printf("[DEBUG] Error getting topics: %v", err)
 							bot.SendMessage(originalMsg.Chat.Id, "❌ Failed to get topics.", &gotgbot.SendMessageOpts{
 								MessageThreadId: originalMsg.MessageThreadId,
 							})
 							continue
 						}
+						log.Printf("[DEBUG] Available topics in database: %v", topics)
 
 						var targetTopic *ForumTopic
 						for _, topic := range topics {
 							if strings.EqualFold(topic.Name, topicName) {
 								targetTopic = &topic
+								log.Printf("[DEBUG] Found existing topic: %s (MessageThreadId: %d)", topic.Name, topic.MessageThreadId)
 								break
 							}
 						}
 
+						// If topic doesn't exist, create it
 						if targetTopic == nil {
-							bot.SendMessage(originalMsg.Chat.Id, "❌ Topic not found. Please try again.", &gotgbot.SendMessageOpts{
-								MessageThreadId: originalMsg.MessageThreadId,
-							})
-							continue
+							log.Printf("[DEBUG] Topic '%s' not found in database, creating new topic", topicName)
+
+							// Create the new topic
+							newTopic, err := CreateForumTopic(botToken, originalMsg.Chat.Id, topicName)
+							if err != nil {
+								log.Printf("[DEBUG] Error creating new topic '%s': %v", topicName, err)
+								bot.SendMessage(originalMsg.Chat.Id, "❌ Failed to create new topic.", &gotgbot.SendMessageOpts{
+									MessageThreadId: originalMsg.MessageThreadId,
+								})
+								continue
+							}
+
+							log.Printf("[DEBUG] Successfully created new topic: %s (MessageThreadId: %d)", newTopic.Name, newTopic.MessageThreadId)
+							targetTopic = newTopic
 						}
 
 						// Copy message to the selected topic
+						log.Printf("[DEBUG] Copying message to topic: MessageId=%d, TopicName=%s, MessageThreadId=%d",
+							originalMsg.MessageId, targetTopic.Name, targetTopic.MessageThreadId)
+
 						err = CopyMessageToTopic(botToken, originalMsg.Chat.Id, originalMsg.Chat.Id, int(originalMsg.MessageId), targetTopic.MessageThreadId)
 						if err != nil {
-							log.Printf("Error copying message: %v", err)
+							log.Printf("[DEBUG] Error copying message to topic: %v", err)
 							bot.SendMessage(originalMsg.Chat.Id, "❌ Failed to move message to topic.", &gotgbot.SendMessageOpts{
 								MessageThreadId: originalMsg.MessageThreadId,
 							})
 							continue
 						}
+						log.Printf("[DEBUG] Successfully copied message to topic: MessageId=%d, TopicName=%s", originalMsg.MessageId, targetTopic.Name)
 
 						// Delete the original user message from General topic
 						DeleteMessage(botToken, originalMsg.Chat.Id, int(originalMsg.MessageId))

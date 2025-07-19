@@ -16,3 +16,7 @@ Thumbs.db
 # Environment files
 .env
 .env.* 
+
+# bot files
+bot.db
+bot.log
