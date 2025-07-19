@@ -1,0 +1,37 @@
+2025/07/19 03:29:51 Authorized on account savemessagbot
+2025/07/19 03:30:00 Received message: tonic (ChatType: supergroup, ThreadId: 0)
+2025/07/19 03:30:00 Processing topic message: tonic
+2025/07/19 03:30:00 getChat response: {"ok":true,"result":{"id":-1002884010868,"title":"Test Save message","is_forum":true,"type":"supergroup","invite_link":"https://t.me/+aKz12N8WDs0xYmJk","has_visible_history":true,"permissions":{"can_send_messages":true,"can_send_media_messages":true,"can_send_audios":true,"can_send_documents":true,"can_send_photos":true,"can_send_videos":true,"can_send_video_notes":true,"can_send_voice_notes":true,"can_send_polls":true,"can_send_other_messages":true,"can_add_web_page_previews":true,"can_change_info":true,"can_invite_users":true,"can_pin_messages":true,"can_manage_topics":true},"join_to_send_messages":true,"accepted_gift_types":{"unlimited_gifts":false,"limited_gifts":false,"unique_gifts":false,"premium_subscription":false},"max_reaction_count":11,"accent_color_id":4}}
+2025/07/19 03:30:00 Chat type: supergroup, Is forum: true
+2025/07/19 03:30:00 getForumTopics response: {"ok":false,"error_code":404,"description":"Not Found"}
+2025/07/19 03:30:00 getForumTopicByID response: {"ok":false,"error_code":404,"description":"Not Found"}
+2025/07/19 03:30:00 All forum topic methods failed, using database
+2025/07/19 03:30:00 Using database topics: [{157 Shopping}]
+2025/07/19 03:30:00 OpenAI suggestions: [Food & Drinks Health]
+2025/07/19 03:30:00 Available topics: [{157 Shopping}]
+2025/07/19 03:30:00 AI suggestions: [Food & Drinks Health]
+2025/07/19 03:30:00 New topic suggested: Food & Drinks
+2025/07/19 03:30:00 New topic suggested: Health
+2025/07/19 03:30:00 Existing topics to show: []
+2025/07/19 03:30:00 New topics to show: [Food & Drinks Health]
+2025/07/19 03:30:00 getChat response: {"ok":true,"result":{"id":-1002884010868,"title":"Test Save message","is_forum":true,"type":"supergroup","invite_link":"https://t.me/+aKz12N8WDs0xYmJk","has_visible_history":true,"permissions":{"can_send_messages":true,"can_send_media_messages":true,"can_send_audios":true,"can_send_documents":true,"can_send_photos":true,"can_send_videos":true,"can_send_video_notes":true,"can_send_voice_notes":true,"can_send_polls":true,"can_send_other_messages":true,"can_add_web_page_previews":true,"can_change_info":true,"can_invite_users":true,"can_pin_messages":true,"can_manage_topics":true},"join_to_send_messages":true,"accepted_gift_types":{"unlimited_gifts":false,"limited_gifts":false,"unique_gifts":false,"premium_subscription":false},"max_reaction_count":11,"accent_color_id":4}}
+2025/07/19 03:30:00 Chat type: supergroup, Is forum: true
+2025/07/19 03:30:00 getForumTopics response: {"ok":false,"error_code":404,"description":"Not Found"}
+2025/07/19 03:30:00 getForumTopicByID response: {"ok":false,"error_code":404,"description":"Not Found"}
+2025/07/19 03:30:00 All forum topic methods failed, using database
+2025/07/19 03:30:00 Using database topics: [{157 Shopping}]
+2025/07/19 03:30:01 Received callback query: show_all_topics_209
+2025/07/19 03:30:02 getChat response: {"ok":true,"result":{"id":-1002884010868,"title":"Test Save message","is_forum":true,"type":"supergroup","invite_link":"https://t.me/+aKz12N8WDs0xYmJk","has_visible_history":true,"permissions":{"can_send_messages":true,"can_send_media_messages":true,"can_send_audios":true,"can_send_documents":true,"can_send_photos":true,"can_send_videos":true,"can_send_video_notes":true,"can_send_voice_notes":true,"can_send_polls":true,"can_send_other_messages":true,"can_add_web_page_previews":true,"can_change_info":true,"can_invite_users":true,"can_pin_messages":true,"can_manage_topics":true},"join_to_send_messages":true,"accepted_gift_types":{"unlimited_gifts":false,"limited_gifts":false,"unique_gifts":false,"premium_subscription":false},"max_reaction_count":11,"accent_color_id":4}}
+2025/07/19 03:30:02 Chat type: supergroup, Is forum: true
+2025/07/19 03:30:02 getForumTopics response: {"ok":false,"error_code":404,"description":"Not Found"}
+2025/07/19 03:30:02 getForumTopicByID response: {"ok":false,"error_code":404,"description":"Not Found"}
+2025/07/19 03:30:02 All forum topic methods failed, using database
+2025/07/19 03:30:02 Using database topics: [{157 Shopping}]
+2025/07/19 03:30:03 Received callback query: Shopping_209
+2025/07/19 03:30:03 getChat response: {"ok":true,"result":{"id":-1002884010868,"title":"Test Save message","is_forum":true,"type":"supergroup","invite_link":"https://t.me/+aKz12N8WDs0xYmJk","has_visible_history":true,"permissions":{"can_send_messages":true,"can_send_media_messages":true,"can_send_audios":true,"can_send_documents":true,"can_send_photos":true,"can_send_videos":true,"can_send_video_notes":true,"can_send_voice_notes":true,"can_send_polls":true,"can_send_other_messages":true,"can_add_web_page_previews":true,"can_change_info":true,"can_invite_users":true,"can_pin_messages":true,"can_manage_topics":true},"join_to_send_messages":true,"accepted_gift_types":{"unlimited_gifts":false,"limited_gifts":false,"unique_gifts":false,"premium_subscription":false},"max_reaction_count":11,"accent_color_id":4}}
+2025/07/19 03:30:03 Chat type: supergroup, Is forum: true
+2025/07/19 03:30:03 getForumTopics response: {"ok":false,"error_code":404,"description":"Not Found"}
+2025/07/19 03:30:03 getForumTopicByID response: {"ok":false,"error_code":404,"description":"Not Found"}
+2025/07/19 03:30:03 All forum topic methods failed, using database
+2025/07/19 03:30:03 Using database topics: [{157 Shopping}]
+signal: interrupt
