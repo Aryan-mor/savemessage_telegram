@@ -353,6 +353,21 @@ func main() {
 					Text: "Processing...",
 				})
 
+				// Special handling for detectMessageOnOtherTopic_ok_ callback
+				if strings.HasPrefix(callbackData, "detectMessageOnOtherTopic_ok_") {
+					// Handle "Ok" button for warning message about posting in non-General topics
+					log.Printf("[DEBUG] Handling detectMessageOnOtherTopic_ok_ callback: %s", callbackData)
+
+					// Delete the warning message itself (the message that contains the "Ok" button)
+					err := DeleteMessage(botToken, update.CallbackQuery.Message.Chat.Id, int(update.CallbackQuery.Message.MessageId))
+					if err != nil {
+						log.Printf("[DEBUG] Error deleting warning message: %v", err)
+					} else {
+						log.Printf("[DEBUG] Successfully deleted warning message: MessageId=%d", update.CallbackQuery.Message.MessageId)
+					}
+					continue
+				}
+
 				originalMsg := messageStore[callbackData]
 				if originalMsg == nil {
 					bot.SendMessage(update.CallbackQuery.From.Id, "❌ Error: Message not found. Please try again.", nil)
@@ -454,24 +469,20 @@ func main() {
 								keyboardMessageStore[backCallbackData] = keyboardMsgId
 							}
 						} else {
-							// If no keyboard message ID found, try to find any message with the same message ID
-							for storedCallback, storedMsgId := range keyboardMessageStore {
-								if strings.Contains(storedCallback, strconv.FormatInt(originalMsg.MessageId, 10)) {
-									_, _, updateErr := bot.EditMessageText("Choose from all existing topics:", &gotgbot.EditMessageTextOpts{
-										ChatId:      originalMsg.Chat.Id,
-										MessageId:   int64(storedMsgId),
-										ReplyMarkup: *keyboard,
-									})
-									if updateErr == nil {
-										// Store the keyboard message ID for all topic buttons
-										for _, topic := range topics {
-											topicCallbackData := topic.Name + "_" + strconv.FormatInt(originalMsg.MessageId, 10)
-											keyboardMessageStore[topicCallbackData] = storedMsgId
-										}
-										keyboardMessageStore[backCallbackData] = storedMsgId
-										break
-									}
+							// Send new message with all topics
+							newMsg, err := bot.SendMessage(originalMsg.Chat.Id, "Choose from all existing topics:", &gotgbot.SendMessageOpts{
+								MessageThreadId: originalMsg.MessageThreadId,
+								ReplyMarkup:     *keyboard,
+							})
+							if err != nil {
+								log.Printf("Error sending message with all topics: %v", err)
+							} else {
+								// Store the keyboard message ID for all topic buttons
+								for _, topic := range topics {
+									topicCallbackData := topic.Name + "_" + strconv.FormatInt(originalMsg.MessageId, 10)
+									keyboardMessageStore[topicCallbackData] = int(newMsg.MessageId)
 								}
+								keyboardMessageStore[backCallbackData] = int(newMsg.MessageId)
 							}
 						}
 					}
@@ -775,10 +786,61 @@ func main() {
 					}
 				}
 				if botJustJoined {
-					welcome := "It helps you organize your saved messages using Topics and smart suggestions — without using any commands.\nYou can categorize, edit, and retrieve your notes easily with inline buttons.\n\n🛡️ 100% private: all your content stays inside Telegram.\n\nJust write — we’ll handle the rest.\n\nFor more info, send /help."
+					welcome := "It helps you organize your saved messages using Topics and smart suggestions — without using any commands.\nYou can categorize, edit, and retrieve your notes easily with inline buttons.\n\n🛡️ 100% private: all your content stays inside Telegram.\n\nJust write — we'll handle the rest.\n\nFor more info, send /help."
 					bot.SendMessage(update.Message.Chat.Id, welcome, &gotgbot.SendMessageOpts{})
 					continue
 				}
+
+				// Check if message is NOT in General topic (thread 0) - only allow messages in General
+				if update.Message.MessageThreadId != 0 {
+					log.Printf("[DEBUG] Message detected in non-General topic: ThreadId=%d, MessageId=%d, Text=%s",
+						update.Message.MessageThreadId, update.Message.MessageId, update.Message.Text)
+
+					// Delete the user's message immediately
+					err := DeleteMessage(botToken, update.Message.Chat.Id, int(update.Message.MessageId))
+					if err != nil {
+						log.Printf("[DEBUG] Error deleting message from non-General topic: %v", err)
+					} else {
+						log.Printf("[DEBUG] Successfully deleted message from non-General topic: MessageId=%d", update.Message.MessageId)
+					}
+
+					// Send warning message with "Ok" button
+					callbackData := "detectMessageOnOtherTopic_ok_" + strconv.FormatInt(update.Message.MessageId, 10)
+					keyboard := &gotgbot.InlineKeyboardMarkup{
+						InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
+							{{Text: "Ok", CallbackData: callbackData}},
+						},
+					}
+
+					warningMsg, err := bot.SendMessage(update.Message.Chat.Id,
+						"⚠️ **Please send messages only in the General topic!**\n\nThis message will be removed automatically in 1 minute.",
+						&gotgbot.SendMessageOpts{
+							MessageThreadId: update.Message.MessageThreadId,
+							ParseMode:       "Markdown",
+							ReplyMarkup:     *keyboard,
+						})
+
+					if err != nil {
+						log.Printf("[DEBUG] Error sending warning message: %v", err)
+					} else {
+						log.Printf("[DEBUG] Successfully sent warning message: MessageId=%d", warningMsg.MessageId)
+
+						// Auto-delete warning message after 1 minute
+						go func(botToken string, chatId int64, messageId int64, threadId int64) {
+							time.Sleep(60 * time.Second)
+							err := DeleteMessage(botToken, chatId, int(messageId))
+							if err != nil {
+								log.Printf("[DEBUG] Error auto-deleting warning message: %v", err)
+							} else {
+								log.Printf("[DEBUG] Successfully auto-deleted warning message: MessageId=%d", messageId)
+							}
+						}(botToken, update.Message.Chat.Id, warningMsg.MessageId, update.Message.MessageThreadId)
+					}
+
+					// Prevent further processing of this message
+					continue
+				}
+
 				// Only run AI suggestions for General topic (thread 0)
 				if update.Message.MessageThreadId != 0 {
 					log.Printf("Skipping AI for non-General topic: thread %d", update.Message.MessageThreadId)
@@ -858,18 +920,29 @@ func main() {
 					// Copy the original user message to the new topic
 					if origMsg, ok := originalMessageStore[update.Message.From.Id]; ok && newTopic != nil {
 						// Copy the message and get the new message ID
-						copyResp, err := CopyMessageToTopicWithResult(botToken, ctx.ChatId, origMsg.Chat.Id, int(origMsg.MessageId), newTopic.MessageThreadId)
+						_, err := CopyMessageToTopicWithResult(botToken, ctx.ChatId, origMsg.Chat.Id, int(origMsg.MessageId), newTopic.MessageThreadId)
 						if err != nil {
 							log.Printf("Error copying message to new topic: %v", err)
 						} else {
-							DeleteMessage(botToken, origMsg.Chat.Id, int(origMsg.MessageId))
-							// Mark the new message as recently moved
-							log.Printf("Marking message as recently moved: %d", copyResp.MessageId)
-							recentlyMovedMessages[copyResp.MessageId] = true
-							// Send success message in General topic (thread 0)
-							bot.SendMessage(ctx.ChatId, "✅ Message successfully moved to the new topic!", &gotgbot.SendMessageOpts{
+							// Build preview: first 2 lines of the original message
+							previewLines := strings.SplitN(origMsg.Text, "\n", 3)
+							preview := ""
+							if len(previewLines) > 0 {
+								preview += "\n\"" + previewLines[0] + "\""
+							}
+							if len(previewLines) > 1 {
+								preview += "\n\"" + previewLines[1] + "\""
+							}
+							confirmMsg := "✅ Message saved to topic: " + newTopic.Name + preview
+							// Send confirmation message to General
+							bot.SendMessage(ctx.ChatId, confirmMsg, &gotgbot.SendMessageOpts{
 								MessageThreadId: 0,
 							})
+							// Delete the original message from General after a short delay
+							go func(botToken string, chatId int64, messageId int) {
+								time.Sleep(1 * time.Second)
+								_ = DeleteMessage(botToken, chatId, messageId)
+							}(botToken, origMsg.Chat.Id, int(origMsg.MessageId))
 						}
 					}
 					// Clean up state
@@ -1063,35 +1136,112 @@ func main() {
 
 								// Add show all topics button if there are existing topics
 								topics, err = GetForumTopics(botToken, msg.Chat.Id)
+								showAllCallbackData := ""
 								if err == nil && len(topics) > 0 {
-									showAllCallbackData := "show_all_topics_" + strconv.FormatInt(msg.MessageId, 10)
+									showAllCallbackData = "show_all_topics_" + strconv.FormatInt(msg.MessageId, 10)
 									messageStore[showAllCallbackData] = msg
 									showAllBtn := gotgbot.InlineKeyboardButton{Text: "📁 Show All Topics", CallbackData: showAllCallbackData}
 									rows = append(rows, []gotgbot.InlineKeyboardButton{showAllBtn})
 								}
 
+								// Add retry button
+								retryCallbackData := "retry_" + strconv.FormatInt(msg.MessageId, 10)
+								messageStore[retryCallbackData] = msg
+								retryBtn := gotgbot.InlineKeyboardButton{Text: "🔄 Try Again", CallbackData: retryCallbackData}
+								rows = append(rows, []gotgbot.InlineKeyboardButton{retryBtn})
+
 								keyboard := &gotgbot.InlineKeyboardMarkup{InlineKeyboard: rows}
 
-								// Update waiting message with keyboard
-								_, _, err = bot.EditMessageText("Choose a folder:", &gotgbot.EditMessageTextOpts{
-									ChatId:      msg.Chat.Id,
-									MessageId:   waitingMsg.MessageId,
-									ReplyMarkup: *keyboard,
-								})
-								if err != nil {
-									log.Printf("Error updating message with keyboard: %v", err)
-								} else {
-									// Store the keyboard message ID for each callback data
-									keyboardMsgId := int(waitingMsg.MessageId)
-									for _, folder := range suggestions {
-										callbackData := folder + "_" + strconv.FormatInt(msg.MessageId, 10)
-										keyboardMessageStore[callbackData] = keyboardMsgId
+								// Always try to update the existing message first
+								callbackData := "suggestions_" + strconv.FormatInt(msg.MessageId, 10)
+								if keyboardMsgId, exists := keyboardMessageStore[callbackData]; exists {
+									_, _, err = bot.EditMessageText("Choose a folder:", &gotgbot.EditMessageTextOpts{
+										ChatId:      msg.Chat.Id,
+										MessageId:   int64(keyboardMsgId),
+										ReplyMarkup: *keyboard,
+									})
+									if err != nil {
+										log.Printf("Error updating message with suggestions: %v", err)
+										// If update fails, try to find the message by searching through all stored keyboard messages
+										for storedCallback, storedMsgId := range keyboardMessageStore {
+											if strings.Contains(storedCallback, strconv.FormatInt(msg.MessageId, 10)) {
+												_, _, updateErr := bot.EditMessageText("Choose a folder:", &gotgbot.EditMessageTextOpts{
+													ChatId:      msg.Chat.Id,
+													MessageId:   int64(storedMsgId),
+													ReplyMarkup: *keyboard,
+												})
+												if updateErr == nil {
+													// Store the keyboard message ID for all suggestion buttons
+													for _, folder := range existingTopics {
+														folderCallbackData := folder + "_" + strconv.FormatInt(msg.MessageId, 10)
+														keyboardMessageStore[folderCallbackData] = storedMsgId
+													}
+													for _, folder := range newTopics {
+														cleanFolder := strings.TrimSpace(folder)
+														if len(cleanFolder) > 0 && len(cleanFolder) <= 50 && !strings.Contains(cleanFolder, "\n") {
+															folderCallbackData := cleanFolder + "_" + strconv.FormatInt(msg.MessageId, 10)
+															keyboardMessageStore[folderCallbackData] = storedMsgId
+														}
+													}
+													keyboardMessageStore[createCallbackData] = storedMsgId
+													if len(topics) > 0 {
+														keyboardMessageStore[showAllCallbackData] = storedMsgId
+													}
+													keyboardMessageStore[retryCallbackData] = storedMsgId
+													break
+												}
+											}
+										}
+									} else {
+										// Store the keyboard message ID for all suggestion buttons
+										for _, folder := range existingTopics {
+											folderCallbackData := folder + "_" + strconv.FormatInt(msg.MessageId, 10)
+											keyboardMessageStore[folderCallbackData] = keyboardMsgId
+										}
+										for _, folder := range newTopics {
+											cleanFolder := strings.TrimSpace(folder)
+											if len(cleanFolder) > 0 && len(cleanFolder) <= 50 && !strings.Contains(cleanFolder, "\n") {
+												folderCallbackData := cleanFolder + "_" + strconv.FormatInt(msg.MessageId, 10)
+												keyboardMessageStore[folderCallbackData] = keyboardMsgId
+											}
+										}
+										keyboardMessageStore[createCallbackData] = keyboardMsgId
+										if len(topics) > 0 {
+											keyboardMessageStore[showAllCallbackData] = keyboardMsgId
+										}
+										keyboardMessageStore[retryCallbackData] = keyboardMsgId
 									}
-									createCallbackData := "create_new_folder_" + strconv.FormatInt(msg.MessageId, 10)
-									keyboardMessageStore[createCallbackData] = keyboardMsgId
+								} else {
+									// Send new message with suggestions
+									newMsg, err := bot.SendMessage(msg.Chat.Id, "Choose a folder:", &gotgbot.SendMessageOpts{
+										MessageThreadId: msg.MessageThreadId,
+										ReplyMarkup:     *keyboard,
+									})
+									if err != nil {
+										log.Printf("Error sending message with suggestions: %v", err)
+									} else {
+										// Store the keyboard message ID for all suggestion buttons
+										for _, folder := range existingTopics {
+											folderCallbackData := folder + "_" + strconv.FormatInt(msg.MessageId, 10)
+											keyboardMessageStore[folderCallbackData] = int(newMsg.MessageId)
+										}
+										for _, folder := range newTopics {
+											cleanFolder := strings.TrimSpace(folder)
+											if len(cleanFolder) > 0 && len(cleanFolder) <= 50 && !strings.Contains(cleanFolder, "\n") {
+												folderCallbackData := cleanFolder + "_" + strconv.FormatInt(msg.MessageId, 10)
+												keyboardMessageStore[folderCallbackData] = int(newMsg.MessageId)
+											}
+										}
+										keyboardMessageStore[createCallbackData] = int(newMsg.MessageId)
+										if len(topics) > 0 {
+											keyboardMessageStore[showAllCallbackData] = int(newMsg.MessageId)
+										}
+										keyboardMessageStore[retryCallbackData] = int(newMsg.MessageId)
+									}
 								}
 							}(update.Message)
-							continue
+						} else {
+							log.Printf("Skipping AI for non-General topic: thread %d", update.Message.MessageThreadId)
 						}
 					}
 				}
