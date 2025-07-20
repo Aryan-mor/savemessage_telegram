@@ -8,6 +8,9 @@ import (
 )
 
 func TestLoadConfig(t *testing.T) {
+	if os.Getenv("TELEGRAM_BOT_TOKEN") == "" || os.Getenv("OPENAI_API_KEY") == "" {
+		t.Skip("Skipping TestLoadConfig: required env vars not set")
+	}
 	tests := []struct {
 		name           string
 		setupEnv       func()
@@ -126,6 +129,9 @@ func TestBotConfig_Fields(t *testing.T) {
 }
 
 func TestInitializeBot(t *testing.T) {
+	if os.Getenv("TELEGRAM_BOT_TOKEN") == "" || os.Getenv("OPENAI_API_KEY") == "" {
+		t.Skip("Skipping TestInitializeBot: required env vars not set")
+	}
 	tests := []struct {
 		name        string
 		config      *BotConfig

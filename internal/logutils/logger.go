@@ -50,12 +50,15 @@ func Warn(funcName string, kv ...any) {
 }
 
 // Error logs an error level message with structured fields
-func Error(funcName string, err error, kv ...any) {
+func Error(msg string, err error, fields ...any) {
 	if logger == nil {
 		Init()
 	}
-	allKv := append([]any{"error", err.Error()}, kv...)
-	logger.Errorw("❌ "+funcName, allKv...)
+	if err == nil {
+		logger.Errorw("❌ "+msg, append(fields, "error", "nil")...)
+		return
+	}
+	logger.Errorw("❌ "+msg, append(fields, "error", err.Error())...)
 }
 
 // Debug logs a debug level message with structured fields

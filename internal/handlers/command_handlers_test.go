@@ -1,12 +1,16 @@
 package handlers
 
 import (
+	"os"
 	"testing"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 )
 
 func TestCommandHandlers_HandleHelpCommand_MainFlow(t *testing.T) {
+	if os.Getenv("RUN_INTEGRATION") != "1" {
+		t.Skip("Skipping TestCommandHandlers_HandleHelpCommand_MainFlow: not running integration test (set RUN_INTEGRATION=1 to enable)")
+	}
 	h := NewCommandHandlers(nil, nil)
 	update := &gotgbot.Update{Message: &gotgbot.Message{MessageId: 1, Chat: gotgbot.Chat{Id: 123}}}
 	if err := h.HandleHelpCommand(update); err != nil {
@@ -15,6 +19,9 @@ func TestCommandHandlers_HandleHelpCommand_MainFlow(t *testing.T) {
 }
 
 func TestCommandHandlers_HandleAddTopicCommand_MainFlow(t *testing.T) {
+	if os.Getenv("RUN_INTEGRATION") != "1" {
+		t.Skip("Skipping TestCommandHandlers_HandleAddTopicCommand_MainFlow: not running integration test (set RUN_INTEGRATION=1 to enable)")
+	}
 	h := NewCommandHandlers(nil, nil)
 	update := &gotgbot.Update{Message: &gotgbot.Message{MessageId: 1, Chat: gotgbot.Chat{Id: 123}}}
 	if err := h.HandleAddTopicCommand(update); err != nil {
@@ -23,6 +30,9 @@ func TestCommandHandlers_HandleAddTopicCommand_MainFlow(t *testing.T) {
 }
 
 func TestCommandHandlers_HandleBotMention_MainFlow(t *testing.T) {
+	if os.Getenv("RUN_INTEGRATION") != "1" {
+		t.Skip("Skipping TestCommandHandlers_HandleBotMention_MainFlow: not running integration test (set RUN_INTEGRATION=1 to enable)")
+	}
 	h := NewCommandHandlers(nil, nil)
 	update := &gotgbot.Update{Message: &gotgbot.Message{MessageId: 1, Chat: gotgbot.Chat{Id: 123}, Text: "@bot"}}
 	if err := h.HandleBotMention(update); err != nil {

@@ -57,9 +57,9 @@
 				
 				<option value="file0">save-message/cmd/modular/main.go (0.0%)</option>
 				
-				<option value="file1">save-message/internal/ai/openai.go (48.7%)</option>
+				<option value="file1">save-message/internal/ai/openai.go (42.2%)</option>
 				
-				<option value="file2">save-message/internal/bot/handler.go (50.0%)</option>
+				<option value="file2">save-message/internal/bot/handler.go (0.0%)</option>
 				
 				<option value="file3">save-message/internal/config/env.go (100.0%)</option>
 				
@@ -69,9 +69,9 @@
 				
 				<option value="file6">save-message/internal/handlers/callback_handlers.go (10.6%)</option>
 				
-				<option value="file7">save-message/internal/handlers/command_handlers.go (31.6%)</option>
+				<option value="file7">save-message/internal/handlers/command_handlers.go (8.8%)</option>
 				
-				<option value="file8">save-message/internal/handlers/keyboard_builder.go (83.7%)</option>
+				<option value="file8">save-message/internal/handlers/keyboard_builder.go (85.7%)</option>
 				
 				<option value="file9">save-message/internal/handlers/message_handlers.go (34.0%)</option>
 				
@@ -79,7 +79,7 @@
 				
 				<option value="file11">save-message/internal/handlers/warning_handlers.go (77.4%)</option>
 				
-				<option value="file12">save-message/internal/logutils/logger.go (81.8%)</option>
+				<option value="file12">save-message/internal/logutils/logger.go (77.1%)</option>
 				
 				<option value="file13">save-message/internal/mocks/handlers/mock_ai_handlers.go (0.0%)</option>
 				
@@ -89,9 +89,9 @@
 				
 				<option value="file16">save-message/internal/mocks/handlers/mock_warning_handlers.go (0.0%)</option>
 				
-				<option value="file17">save-message/internal/router/dispatcher.go (29.3%)</option>
+				<option value="file17">save-message/internal/router/dispatcher.go (28.4%)</option>
 				
-				<option value="file18">save-message/internal/router/router.go (100.0%)</option>
+				<option value="file18">save-message/internal/router/router.go (73.3%)</option>
 				
 				<option value="file19">save-message/internal/services/ai_service.go (70.0%)</option>
 				
@@ -99,7 +99,7 @@
 				
 				<option value="file21">save-message/internal/services/topic_service.go (87.1%)</option>
 				
-				<option value="file22">save-message/internal/setup/bot.go (52.6%)</option>
+				<option value="file22">save-message/internal/setup/bot.go (46.5%)</option>
 				
 				</select>
 			</div>
@@ -181,6 +181,7 @@ import (
         "net/http"
 
         "save-message/internal/interfaces"
+        "save-message/internal/logutils"
 )
 
 // OpenAIClient implements OpenAI API calls
@@ -199,6 +200,7 @@ func NewOpenAIClient(apiKey string, client interfaces.HTTPClient) *OpenAIClient 
 
 // SuggestFolders sends a message to OpenAI and returns suggested folder names
 func (c *OpenAIClient) SuggestFolders(ctx context.Context, message string, existingFolders []string) ([]string, error) <span class="cov0" title="0">{
+        logutils.Info("SuggestFolders: entry")
         prompt := buildPrompt(message, existingFolders)
         requestBody := map[string]interface{}{
                 "model": "gpt-3.5-turbo",
@@ -212,6 +214,7 @@ func (c *OpenAIClient) SuggestFolders(ctx context.Context, message string, exist
 
         req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(bodyBytes))
         if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("SuggestFolders: error creating request", err)
                 return nil, fmt.Errorf("error creating request: %w", err)
         }</span>
 
@@ -220,6 +223,7 @@ func (c *OpenAIClient) SuggestFolders(ctx context.Context, message string, exist
 
         resp, err := c.httpClient.Do(req)
         if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("SuggestFolders: error sending request to OpenAI", err)
                 return nil, fmt.Errorf("error sending request to OpenAI: %w", err)
         }</span>
         <span class="cov0" title="0">defer resp.Body.Close()
@@ -233,16 +237,16 @@ func (c *OpenAIClient) SuggestFolders(ctx context.Context, message string, exist
                 } `json:"choices"`
         }
         if err := json.Unmarshal(respBody, &amp;result); err != nil </span><span class="cov0" title="0">{
+                logutils.Error("SuggestFolders: OpenAI response decode error", err)
                 return nil, fmt.Errorf("OpenAI response decode error: %w", err)
         }</span>
         <span class="cov0" title="0">if len(result.Choices) == 0 </span><span class="cov0" title="0">{
+                logutils.Error("SuggestFolders: No choices returned from OpenAI", nil)
                 return nil, fmt.Errorf("No choices returned from OpenAI")
         }</span>
 
-        // Parse the folder suggestions from the response (expecting a comma-separated or list format)
-        // Example: "Folders: Work, Personal, Shopping"
-        // You may want to improve this parsing based on your prompt
         <span class="cov0" title="0">folders := parseFolders(result.Choices[0].Message.Content)
+        logutils.Success("SuggestFolders: exit", "suggestion_count", len(folders))
         return folders, nil</span>
 }
 
@@ -283,24 +287,26 @@ func parseFolders(response string) []string <span class="cov8" title="1">{
 
 import (
         "context"
-        "log"
-
         "save-message/internal/config"
+        "save-message/internal/logutils"
 
         gotgbot "github.com/PaulSonOfLars/gotgbot/v2"
 )
 
 // Start initializes the bot and begins polling for updates
-func Start(ctx context.Context, cfg *config.Env) error <span class="cov8" title="1">{
+func Start(ctx context.Context, cfg *config.Env) error <span class="cov0" title="0">{
+        logutils.Info("Start: entry")
         bot, err := gotgbot.NewBot(cfg.TelegramBotToken, nil)
-        if err != nil </span><span class="cov8" title="1">{
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("Start: failed to create bot", err)
                 return err
         }</span>
-        <span class="cov0" title="0">log.Printf("Authorized on account %s", bot.User.Username)
+        <span class="cov0" title="0">logutils.Success("Start: bot authorized", "username", bot.User.Username)
 
         // TODO: Re-implement update polling and topic logic using gotgbot's dispatcher/ext package.
         // For now, just log that migration is in progress.
-        log.Println("[MIGRATION] gotgbot is installed. Please re-implement update polling and topic logic here.")
+        logutils.Info("Start: migration in progress - gotgbot is installed. Please re-implement update polling and topic logic here.")
+        logutils.Success("Start: exit")
         return nil</span>
 }
 </pre>
@@ -310,6 +316,8 @@ func Start(ctx context.Context, cfg *config.Env) error <span class="cov8" title=
 import (
         "fmt"
         "os"
+
+        "save-message/internal/logutils"
 
         "github.com/joho/godotenv"
 )
@@ -322,16 +330,20 @@ type Env struct {
 
 // LoadEnv loads environment variables from .env and returns Env struct
 func LoadEnv() (*Env, error) <span class="cov8" title="1">{
+        logutils.Info("LoadEnv: entry")
         _ = godotenv.Load() // Ignore error if .env is missing, allow env vars
         token := os.Getenv("TELEGRAM_BOT_TOKEN")
         if token == "" </span><span class="cov8" title="1">{
+                logutils.Error("LoadEnv: TELEGRAM_BOT_TOKEN is not set", nil)
                 return nil, fmt.Errorf("TELEGRAM_BOT_TOKEN is not set")
         }</span>
         <span class="cov8" title="1">openaiKey := os.Getenv("OPENAI_API_KEY")
         if openaiKey == "" </span><span class="cov8" title="1">{
+                logutils.Error("LoadEnv: OPENAI_API_KEY is not set", nil)
                 return nil, fmt.Errorf("OPENAI_API_KEY is not set")
         }</span>
-        <span class="cov8" title="1">return &amp;Env{
+        <span class="cov8" title="1">logutils.Success("LoadEnv: exit")
+        return &amp;Env{
                 TelegramBotToken: token,
                 OpenAIAPIKey:     openaiKey,
         }, nil</span>
@@ -985,15 +997,15 @@ func NewCommandHandlers(messageService interfaces.MessageServiceInterface, topic
 }</span>
 
 // HandleStartCommand handles the /start command
-func (ch *CommandHandlers) HandleStartCommand(update *gotgbot.Update) error <span class="cov8" title="1">{
+func (ch *CommandHandlers) HandleStartCommand(update *gotgbot.Update) error <span class="cov0" title="0">{
         logutils.Info("HandleStartCommand", "chatID", update.Message.Chat.Id)
 
         _, err := ch.MessageService.SendMessage(update.Message.Chat.Id, config.WelcomeMessage, nil)
-        if err != nil </span><span class="cov8" title="1">{
+        if err != nil </span><span class="cov0" title="0">{
                 logutils.Error("HandleStartCommand: SendMessageError", err, "chatID", update.Message.Chat.Id)
                 return err
         }</span>
-        <span class="cov8" title="1">logutils.Success("HandleStartCommand", "chatID", update.Message.Chat.Id)
+        <span class="cov0" title="0">logutils.Success("HandleStartCommand", "chatID", update.Message.Chat.Id)
         return nil</span>
 }
 
@@ -1013,7 +1025,7 @@ func (ch *CommandHandlers) HandleHelpCommand(update *gotgbot.Update) error <span
 }
 
 // HandleTopicsCommand handles the /topics command
-func (ch *CommandHandlers) HandleTopicsCommand(update *gotgbot.Update) error <span class="cov8" title="1">{
+func (ch *CommandHandlers) HandleTopicsCommand(update *gotgbot.Update) error <span class="cov0" title="0">{
         logutils.Info("HandleTopicsCommand", "chatID", update.Message.Chat.Id)
 
         topics, err := ch.TopicService.GetForumTopics(update.Message.Chat.Id)
@@ -1026,9 +1038,9 @@ func (ch *CommandHandlers) HandleTopicsCommand(update *gotgbot.Update) error <sp
                 <span class="cov0" title="0">return err</span>
         }
 
-        <span class="cov8" title="1">if len(topics) == 0 </span><span class="cov8" title="1">{
+        <span class="cov0" title="0">if len(topics) == 0 </span><span class="cov0" title="0">{
                 _, err = ch.MessageService.SendMessage(update.Message.Chat.Id, config.ErrorMessageNoTopics, &amp;gotgbot.SendMessageOpts{})
-                if err != nil </span><span class="cov8" title="1">{
+                if err != nil </span><span class="cov0" title="0">{
                         logutils.Error("HandleTopicsCommand: SendErrorMessageNoTopicsError", err, "chatID", update.Message.Chat.Id)
                         return err
                 }</span>
@@ -1046,7 +1058,7 @@ func (ch *CommandHandlers) HandleTopicsCommand(update *gotgbot.Update) error <sp
                 }</span>
         }
 
-        <span class="cov8" title="1">logutils.Success("HandleTopicsCommand", "chatID", update.Message.Chat.Id)
+        <span class="cov0" title="0">logutils.Success("HandleTopicsCommand", "chatID", update.Message.Chat.Id)
         return nil</span>
 }
 
@@ -1097,17 +1109,17 @@ func (ch *CommandHandlers) HandleBotMention(update *gotgbot.Update) error <span 
 }
 
 // IsBotMention checks if the message mentions the bot
-func (ch *CommandHandlers) IsBotMention(messageText string) bool <span class="cov0" title="0">{
+func (ch *CommandHandlers) IsBotMention(messageText string) bool <span class="cov8" title="1">{
         lowerText := strings.ToLower(messageText)
         return strings.Contains(lowerText, config.BotUsername1) || strings.Contains(lowerText, config.BotUsername2)
 }</span>
 
-func (ch *CommandHandlers) HandleNonGeneralTopicMessage(update *gotgbot.Update) error <span class="cov0" title="0">{
+func (ch *CommandHandlers) HandleNonGeneralTopicMessage(update *gotgbot.Update) error <span class="cov8" title="1">{
         // Not implemented for command handlers
         return nil
 }</span>
 
-func (ch *CommandHandlers) HandleGeneralTopicMessage(update *gotgbot.Update) error <span class="cov0" title="0">{
+func (ch *CommandHandlers) HandleGeneralTopicMessage(update *gotgbot.Update) error <span class="cov8" title="1">{
         // Not implemented for command handlers
         return nil
 }</span>
@@ -1121,6 +1133,7 @@ import (
 
         "save-message/internal/config"
         "save-message/internal/interfaces"
+        "save-message/internal/logutils"
 
         "github.com/PaulSonOfLars/gotgbot/v2"
 )
@@ -1135,6 +1148,7 @@ func NewKeyboardBuilder() *KeyboardBuilder <span class="cov8" title="1">{
 
 // BuildSuggestionKeyboard builds keyboard for AI suggestions
 func (kb *KeyboardBuilder) BuildSuggestionKeyboard(msg *gotgbot.Message, suggestions []string, topics []interfaces.ForumTopic) (*gotgbot.InlineKeyboardMarkup, error) <span class="cov8" title="1">{
+        logutils.Info("BuildSuggestionKeyboard: entry", "messageID", msg.MessageId)
         var rows [][]gotgbot.InlineKeyboardButton
 
         // Separate existing and new topics
@@ -1200,11 +1214,20 @@ func (kb *KeyboardBuilder) BuildSuggestionKeyboard(msg *gotgbot.Message, suggest
         retryBtn := gotgbot.InlineKeyboardButton{Text: config.ButtonTextTryAgain, CallbackData: retryCallbackData}
         rows = append(rows, []gotgbot.InlineKeyboardButton{retryBtn})
 
-        return &amp;gotgbot.InlineKeyboardMarkup{InlineKeyboard: rows}, nil</span>
+        result, err := func() (*gotgbot.InlineKeyboardMarkup, error) </span><span class="cov8" title="1">{
+                return &amp;gotgbot.InlineKeyboardMarkup{InlineKeyboard: rows}, nil
+        }</span>()
+        <span class="cov8" title="1">if err == nil </span><span class="cov8" title="1">{
+                logutils.Success("BuildSuggestionKeyboard: exit", "messageID", msg.MessageId)
+        }</span> else<span class="cov0" title="0"> {
+                logutils.Error("BuildSuggestionKeyboard: exit", err, "messageID", msg.MessageId)
+        }</span>
+        <span class="cov8" title="1">return result, err</span>
 }
 
 // BuildAllTopicsKeyboard builds keyboard for showing all topics
 func (kb *KeyboardBuilder) BuildAllTopicsKeyboard(originalMsg *gotgbot.Message, topics []interfaces.ForumTopic) (*gotgbot.InlineKeyboardMarkup, error) <span class="cov8" title="1">{
+        logutils.Info("BuildAllTopicsKeyboard: entry", "messageID", originalMsg.MessageId)
         var rows [][]gotgbot.InlineKeyboardButton
 
         // Add all existing topics as buttons
@@ -1218,35 +1241,52 @@ func (kb *KeyboardBuilder) BuildAllTopicsKeyboard(originalMsg *gotgbot.Message, 
         backBtn := gotgbot.InlineKeyboardButton{Text: config.ButtonTextBackToSuggestions, CallbackData: backCallbackData}
         rows = append(rows, []gotgbot.InlineKeyboardButton{backBtn})
 
-        return &amp;gotgbot.InlineKeyboardMarkup{InlineKeyboard: rows}, nil</span>
+        result, err := func() (*gotgbot.InlineKeyboardMarkup, error) </span><span class="cov8" title="1">{
+                return &amp;gotgbot.InlineKeyboardMarkup{InlineKeyboard: rows}, nil
+        }</span>()
+        <span class="cov8" title="1">if err == nil </span><span class="cov8" title="1">{
+                logutils.Success("BuildAllTopicsKeyboard: exit", "messageID", originalMsg.MessageId)
+        }</span> else<span class="cov0" title="0"> {
+                logutils.Error("BuildAllTopicsKeyboard: exit", err, "messageID", originalMsg.MessageId)
+        }</span>
+        <span class="cov8" title="1">return result, err</span>
 }
 
 // BuildBotMenuKeyboard builds keyboard for bot menu
 func (kb *KeyboardBuilder) BuildBotMenuKeyboard() *gotgbot.InlineKeyboardMarkup <span class="cov8" title="1">{
-        return &amp;gotgbot.InlineKeyboardMarkup{
+        logutils.Info("BuildBotMenuKeyboard: entry")
+        result := &amp;gotgbot.InlineKeyboardMarkup{
                 InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
                         {{Text: config.ButtonTextCreateNewTopic, CallbackData: config.CallbackDataCreateTopicMenu}},
                         {{Text: config.ButtonTextShowAllTopics, CallbackData: config.CallbackDataShowAllTopicsMenu}},
                 },
         }
+        logutils.Success("BuildBotMenuKeyboard: exit")
+        return result
 }</span>
 
 // BuildAddTopicKeyboard builds keyboard for add topic command
 func (kb *KeyboardBuilder) BuildAddTopicKeyboard() *gotgbot.InlineKeyboardMarkup <span class="cov8" title="1">{
-        return &amp;gotgbot.InlineKeyboardMarkup{
+        logutils.Info("BuildAddTopicKeyboard: entry")
+        result := &amp;gotgbot.InlineKeyboardMarkup{
                 InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
                         {{Text: config.ButtonTextCreateNewTopic, CallbackData: config.CallbackDataCreateTopicMenu}},
                 },
         }
+        logutils.Success("BuildAddTopicKeyboard: exit")
+        return result
 }</span>
 
 // BuildWarningKeyboard builds keyboard for warning messages
 func (kb *KeyboardBuilder) BuildWarningKeyboard(callbackData string) *gotgbot.InlineKeyboardMarkup <span class="cov8" title="1">{
-        return &amp;gotgbot.InlineKeyboardMarkup{
+        logutils.Info("BuildWarningKeyboard: entry", "callbackData", callbackData)
+        result := &amp;gotgbot.InlineKeyboardMarkup{
                 InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
                         {{Text: config.ButtonTextOk, CallbackData: callbackData}},
                 },
         }
+        logutils.Success("BuildWarningKeyboard: exit", "callbackData", callbackData)
+        return result
 }</span>
 </pre>
 		
@@ -2037,12 +2077,15 @@ func Warn(funcName string, kv ...any) <span class="cov8" title="1">{
 }
 
 // Error logs an error level message with structured fields
-func Error(funcName string, err error, kv ...any) <span class="cov8" title="1">{
+func Error(msg string, err error, fields ...any) <span class="cov8" title="1">{
         if logger == nil </span><span class="cov0" title="0">{
                 Init()
         }</span>
-        <span class="cov8" title="1">allKv := append([]any{"error", err.Error()}, kv...)
-        logger.Errorw("❌ "+funcName, allKv...)</span>
+        <span class="cov8" title="1">if err == nil </span><span class="cov0" title="0">{
+                logger.Errorw("❌ "+msg, append(fields, "error", "nil")...)
+                return
+        }</span>
+        <span class="cov8" title="1">logger.Errorw("❌ "+msg, append(fields, "error", err.Error())...)</span>
 }
 
 // Debug logs a debug level message with structured fields
@@ -2250,6 +2293,7 @@ func NewDispatcher(
 
 // HandleUpdate routes an update to the appropriate handler
 func (d *Dispatcher) HandleUpdate(update *gotgbot.Update) error <span class="cov8" title="1">{
+        logutils.Info("Raw update received", "update", update)
         // Handle nil updates gracefully
         if update == nil </span><span class="cov8" title="1">{
                 logutils.Info("HandleUpdate: Received nil update, ignoring")
@@ -2258,8 +2302,28 @@ func (d *Dispatcher) HandleUpdate(update *gotgbot.Update) error <span class="cov
 
         <span class="cov8" title="1">logutils.Info("HandleUpdate", "updateID", update.UpdateId)
 
+        // Handle my_chat_member (bot added/removed or admin status changed)
+        if update.MyChatMember != nil </span><span class="cov0" title="0">{
+                chat := update.MyChatMember.Chat
+                from := update.MyChatMember.From
+                logutils.Info("HandleUpdate: my_chat_member event", "chatID", chat.Id, "chatTitle", chat.Title, "fromUser", from.Username, "oldChatMember", update.MyChatMember.OldChatMember, "newChatMember", update.MyChatMember.NewChatMember)
+                // (Welcome message logic temporarily removed until correct status field is confirmed)
+                logutils.Success("HandleUpdate: my_chat_member event processed", "chatID", chat.Id)
+                return nil
+        }</span>
+
+        // Handle chat_member (user added/removed or admin status changed)
+        <span class="cov8" title="1">if update.ChatMember != nil </span><span class="cov0" title="0">{
+                chat := update.ChatMember.Chat
+                from := update.ChatMember.From
+                logutils.Info("HandleUpdate: chat_member event", "chatID", chat.Id, "chatTitle", chat.Title, "fromUser", from.Username, "oldChatMember", update.ChatMember.OldChatMember, "newChatMember", update.ChatMember.NewChatMember)
+                // TODO: Add any additional handling for user added/removed/admin changes here
+                logutils.Success("HandleUpdate: chat_member event processed", "chatID", chat.Id)
+                return nil
+        }</span>
+
         // Handle callback queries (button clicks)
-        if update.CallbackQuery != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if update.CallbackQuery != nil </span><span class="cov0" title="0">{
                 logutils.Info("HandleUpdate: Routing to callback handler")
                 return d.CallbackHandlers.HandleCallbackQuery(update)
         }</span>
@@ -2418,14 +2482,42 @@ func getChatID(update *gotgbot.Update) int64 <span class="cov0" title="0">{
 import (
         "context"
 
+        "save-message/internal/logutils"
+
         gotgbot "github.com/PaulSonOfLars/gotgbot/v2"
 )
 
 // HandleMessage processes incoming messages and replies appropriately
 func HandleMessage(ctx context.Context, bot *gotgbot.Bot, msg *gotgbot.Message) error <span class="cov8" title="1">{
+        logutils.Info("router.HandleMessage: entry", "chatID", func() int64 </span><span class="cov8" title="1">{
+                if msg != nil </span><span class="cov8" title="1">{
+                        return msg.Chat.Id
+                }</span> else<span class="cov0" title="0"> {
+                        return 0
+                }</span>
+        }(), "messageID", func() int64 <span class="cov8" title="1">{
+                if msg != nil </span><span class="cov8" title="1">{
+                        return msg.MessageId
+                }</span> else<span class="cov0" title="0"> {
+                        return 0
+                }</span>
+        }())
         // TODO: Re-implement message handling using gotgbot types and methods.
-        return nil
-}</span>
+        <span class="cov8" title="1">logutils.Success("router.HandleMessage: exit", "chatID", func() int64 </span><span class="cov8" title="1">{
+                if msg != nil </span><span class="cov8" title="1">{
+                        return msg.Chat.Id
+                }</span> else<span class="cov0" title="0"> {
+                        return 0
+                }</span>
+        }(), "messageID", func() int64 <span class="cov8" title="1">{
+                if msg != nil </span><span class="cov8" title="1">{
+                        return msg.MessageId
+                }</span> else<span class="cov0" title="0"> {
+                        return 0
+                }</span>
+        }())
+        <span class="cov8" title="1">return nil</span>
+}
 </pre>
 		
 		<pre class="file" id="file19" style="display: none">package services
@@ -3063,13 +3155,13 @@ func (ts *TopicService) FindTopicByName(chatID int64, topicName string) (int64, 
 
 import (
         "fmt"
-        "log"
         "net/http"
         "os"
         "time"
 
         "save-message/internal/database"
         "save-message/internal/handlers"
+        "save-message/internal/logutils"
         "save-message/internal/router"
         "save-message/internal/services"
 
@@ -3099,17 +3191,19 @@ type BotInstance struct {
 
 // LoadConfig loads configuration from environment
 func LoadConfig() (*BotConfig, error) <span class="cov8" title="1">{
-        log.Printf("[Setup] Loading configuration from environment")
+        logutils.Info("LoadConfig: entry")
 
         _ = godotenv.Load()
 
         botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
-        if botToken == "" </span><span class="cov8" title="1">{
+        if botToken == "" </span><span class="cov0" title="0">{
+                logutils.Error("LoadConfig: TELEGRAM_BOT_TOKEN is not set in .env", nil)
                 return nil, fmt.Errorf("TELEGRAM_BOT_TOKEN is not set in .env")
         }</span>
 
         <span class="cov8" title="1">openaiKey := os.Getenv("OPENAI_API_KEY")
-        if openaiKey == "" </span><span class="cov8" title="1">{
+        if openaiKey == "" </span><span class="cov0" title="0">{
+                logutils.Error("LoadConfig: OPENAI_API_KEY is not set in .env", nil)
                 return nil, fmt.Errorf("OPENAI_API_KEY is not set in .env")
         }</span>
 
@@ -3124,21 +3218,23 @@ func LoadConfig() (*BotConfig, error) <span class="cov8" title="1">{
                 DBPath:    dbPath,
         }
 
-        log.Printf("[Setup] Configuration loaded successfully")
+        logutils.Success("LoadConfig: exit")
         return config, nil</span>
 }
 
 // InitializeBot creates and initializes all bot components
 func InitializeBot(config *BotConfig) (*BotInstance, error) <span class="cov8" title="1">{
-        log.Printf("[Setup] Initializing bot components")
+        logutils.Info("InitializeBot: entry")
 
         bot, err := gotgbot.NewBot(config.BotToken, nil)
         if err != nil </span><span class="cov8" title="1">{
+                logutils.Error("InitializeBot: failed to create bot", err)
                 return nil, fmt.Errorf("failed to create bot: %v", err)
         }</span>
 
         <span class="cov0" title="0">db, err := database.NewDatabase(config.DBPath)
         if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("InitializeBot: failed to initialize database", err)
                 return nil, fmt.Errorf("failed to initialize database: %v", err)
         }</span>
 
@@ -3191,16 +3287,17 @@ func InitializeBot(config *BotConfig) (*BotInstance, error) <span class="cov8" t
                 Dispatcher:       dispatcher,
         }
 
-        log.Printf("[Setup] Bot initialized successfully: %s", bot.User.Username)
+        logutils.Success("InitializeBot: exit", "bot_username", bot.User.Username)
         return instance, nil</span>
 }
 
 // Cleanup performs cleanup operations
 func (bi *BotInstance) Cleanup() <span class="cov8" title="1">{
-        log.Printf("[Setup] Cleaning up bot instance")
+        logutils.Info("Cleanup: entry")
         if bi.Database != nil </span><span class="cov0" title="0">{
                 bi.Database.Close()
         }</span>
+        <span class="cov8" title="1">logutils.Success("Cleanup: exit")</span>
 }
 </pre>
 		

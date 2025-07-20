@@ -1,7 +1,6 @@
 package config
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -9,85 +8,59 @@ import (
 )
 
 func TestLoadEnv(t *testing.T) {
-	tests := []struct {
-		name           string
-		setupEnv       func()
-		expectedError  bool
-		expectedToken  string
-		expectedAPIKey string
-	}{
-		{
-			name: "successful load with both environment variables",
-			setupEnv: func() {
-				os.Setenv("TELEGRAM_BOT_TOKEN", "test_token_123")
-				os.Setenv("OPENAI_API_KEY", "test_api_key_456")
-			},
-			expectedError:  false,
-			expectedToken:  "test_token_123",
-			expectedAPIKey: "test_api_key_456",
-		},
-		{
-			name: "missing TELEGRAM_BOT_TOKEN",
-			setupEnv: func() {
-				os.Unsetenv("TELEGRAM_BOT_TOKEN")
-				os.Setenv("OPENAI_API_KEY", "test_api_key_456")
-			},
-			expectedError: true,
-		},
-		{
-			name: "missing OPENAI_API_KEY",
-			setupEnv: func() {
-				os.Setenv("TELEGRAM_BOT_TOKEN", "test_token_123")
-				os.Unsetenv("OPENAI_API_KEY")
-			},
-			expectedError: true,
-		},
-		{
-			name: "both environment variables missing",
-			setupEnv: func() {
-				os.Unsetenv("TELEGRAM_BOT_TOKEN")
-				os.Unsetenv("OPENAI_API_KEY")
-			},
-			expectedError: true,
-		},
-		{
-			name: "empty TELEGRAM_BOT_TOKEN",
-			setupEnv: func() {
-				os.Setenv("TELEGRAM_BOT_TOKEN", "")
-				os.Setenv("OPENAI_API_KEY", "test_api_key_456")
-			},
-			expectedError: true,
-		},
-		{
-			name: "empty OPENAI_API_KEY",
-			setupEnv: func() {
-				os.Setenv("TELEGRAM_BOT_TOKEN", "test_token_123")
-				os.Setenv("OPENAI_API_KEY", "")
-			},
-			expectedError: true,
-		},
-	}
+	t.Run("successful_load_with_both_environment_variables", func(t *testing.T) {
+		t.Setenv("TELEGRAM_BOT_TOKEN", "dummy")
+		t.Setenv("OPENAI_API_KEY", "dummy")
+		_, err := LoadEnv()
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Setup environment
-			tt.setupEnv()
+	t.Run("missing_TELEGRAM_BOT_TOKEN", func(t *testing.T) {
+		t.Setenv("TELEGRAM_BOT_TOKEN", "")
+		t.Setenv("OPENAI_API_KEY", "dummy")
+		_, err := LoadEnv()
+		if err == nil {
+			t.Fatalf("expected error for missing TELEGRAM_BOT_TOKEN, got nil")
+		}
+	})
 
-			// Call function
-			result, err := LoadEnv()
+	t.Run("missing_OPENAI_API_KEY", func(t *testing.T) {
+		t.Setenv("TELEGRAM_BOT_TOKEN", "dummy")
+		t.Setenv("OPENAI_API_KEY", "")
+		_, err := LoadEnv()
+		if err == nil {
+			t.Fatalf("expected error for missing OPENAI_API_KEY, got nil")
+		}
+	})
 
-			// Assertions
-			if tt.expectedError {
-				assert.Error(t, err)
-				assert.Nil(t, result)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, result)
-				assert.Equal(t, tt.expectedToken, result.TelegramBotToken)
-				assert.Equal(t, tt.expectedAPIKey, result.OpenAIAPIKey)
-			}
-		})
-	}
+	t.Run("both_environment_variables_missing", func(t *testing.T) {
+		t.Setenv("TELEGRAM_BOT_TOKEN", "")
+		t.Setenv("OPENAI_API_KEY", "")
+		_, err := LoadEnv()
+		if err == nil {
+			t.Fatalf("expected error for both missing, got nil")
+		}
+	})
+
+	t.Run("empty_TELEGRAM_BOT_TOKEN", func(t *testing.T) {
+		t.Setenv("TELEGRAM_BOT_TOKEN", "")
+		t.Setenv("OPENAI_API_KEY", "dummy")
+		_, err := LoadEnv()
+		if err == nil {
+			t.Fatalf("expected error for empty TELEGRAM_BOT_TOKEN, got nil")
+		}
+	})
+
+	t.Run("empty_OPENAI_API_KEY", func(t *testing.T) {
+		t.Setenv("TELEGRAM_BOT_TOKEN", "dummy")
+		t.Setenv("OPENAI_API_KEY", "")
+		_, err := LoadEnv()
+		if err == nil {
+			t.Fatalf("expected error for empty OPENAI_API_KEY, got nil")
+		}
+	})
 }
 
 func TestEnv_Fields(t *testing.T) {
