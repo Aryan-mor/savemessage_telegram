@@ -18,6 +18,9 @@ func (m *MockAIHandlers) HandleRetryCallback(u *gotgbot.Update, msg *gotgbot.Mes
 func (m *MockAIHandlers) HandleBackToSuggestionsCallback(u *gotgbot.Update, msg *gotgbot.Message) error {
 	return nil
 }
+func (m *MockAIHandlers) HandleShowExistingFolders(u *gotgbot.Update, msg *gotgbot.Message) error {
+	return nil
+}
 
 type MockAIService struct{}
 

@@ -33,6 +33,11 @@ func (kb *KeyboardBuilder) BuildSuggestionKeyboard(msg *gotgbot.Message, suggest
 		Text:         "📝 Create New Topic",
 		CallbackData: "create_new_folder_" + strconv.FormatInt(int64(msg.MessageId), 10),
 	}})
+	// Add choose from existing folders button
+	rows = append(rows, []gotgbot.InlineKeyboardButton{{
+		Text:         "➕ Choose from existing folders",
+		CallbackData: "show_existing_folders_" + strconv.FormatInt(int64(msg.MessageId), 10),
+	}})
 	keyboard := &gotgbot.InlineKeyboardMarkup{
 		InlineKeyboard: rows,
 	}

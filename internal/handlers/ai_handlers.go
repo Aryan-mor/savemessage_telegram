@@ -232,6 +232,101 @@ func (ah *AIHandlers) HandleBackToSuggestionsCallback(update *gotgbot.Update, or
 	return nil
 }
 
+// HandleShowExistingFolders handles the 'Choose from existing folders' button
+func (ah *AIHandlers) HandleShowExistingFolders(update *gotgbot.Update, originalMsg *gotgbot.Message) error {
+	logutils.Info("HandleShowExistingFolders", "chatID", originalMsg.Chat.Id)
+
+	topics, err := ah.topicService.GetForumTopics(originalMsg.Chat.Id)
+	if err != nil {
+		logutils.Error("HandleShowExistingFolders: GetForumTopicsError", err, "chatID", originalMsg.Chat.Id)
+		_, sendErr := ah.messageService.SendMessage(originalMsg.Chat.Id, config.ErrorMessageFailed, &gotgbot.SendMessageOpts{
+			MessageThreadId: originalMsg.MessageThreadId,
+		})
+		if sendErr != nil {
+			logutils.Error("HandleShowExistingFolders: SendMessageError", sendErr, "chatID", originalMsg.Chat.Id)
+		}
+		return err
+	}
+
+	keyboard, err := ah.keyboardBuilder.BuildAllTopicsKeyboard(originalMsg, topics)
+	if err != nil {
+		logutils.Error("HandleShowExistingFolders: BuildAllTopicsKeyboardError", err, "chatID", originalMsg.Chat.Id)
+		return err
+	}
+
+	// Store message references for all topic buttons and back button
+	for _, topic := range topics {
+		callbackData := topic.Name + "_" + strconv.FormatInt(originalMsg.MessageId, 10)
+		ah.messageStore[callbackData] = originalMsg
+		if ah.TopicHandlers != nil {
+			ah.TopicHandlers.MessageStore[callbackData] = originalMsg
+		}
+	}
+	backCallbackData := config.CallbackPrefixBackToSuggestions + strconv.FormatInt(originalMsg.MessageId, 10)
+	ah.messageStore[backCallbackData] = originalMsg
+	if ah.TopicHandlers != nil {
+		ah.TopicHandlers.MessageStore[backCallbackData] = originalMsg
+	}
+
+	// Try to update existing message or send new one
+	callbackData := "show_existing_folders_" + strconv.FormatInt(originalMsg.MessageId, 10)
+	if keyboardMsgId, exists := ah.keyboardMessageStore[callbackData]; exists {
+		_, err = ah.messageService.EditMessageText(originalMsg.Chat.Id, int64(keyboardMsgId), config.ChooseFromAllTopicsMessage, &gotgbot.EditMessageTextOpts{
+			ReplyMarkup: *keyboard,
+		})
+		if err != nil {
+			logutils.Error("HandleShowExistingFolders: EditMessageTextError", err, "chatID", originalMsg.Chat.Id, "messageID", keyboardMsgId)
+			// If update fails, send new message
+			newMsg, err := ah.messageService.SendMessage(originalMsg.Chat.Id, config.ChooseFromAllTopicsMessage, &gotgbot.SendMessageOpts{
+				MessageThreadId: originalMsg.MessageThreadId,
+				ReplyMarkup:     *keyboard,
+			})
+			if err != nil {
+				logutils.Error("HandleShowExistingFolders: SendMessageError", err, "chatID", originalMsg.Chat.Id)
+			} else {
+				ah.keyboardMessageStore[callbackData] = int(newMsg.MessageId)
+				if ah.TopicHandlers != nil {
+					for _, topic := range topics {
+						cb := topic.Name + "_" + strconv.FormatInt(originalMsg.MessageId, 10)
+						ah.TopicHandlers.KeyboardMessageStore[cb] = int(newMsg.MessageId)
+					}
+					ah.TopicHandlers.KeyboardMessageStore[backCallbackData] = int(newMsg.MessageId)
+				}
+			}
+		} else {
+			ah.keyboardMessageStore[callbackData] = keyboardMsgId
+			if ah.TopicHandlers != nil {
+				for _, topic := range topics {
+					cb := topic.Name + "_" + strconv.FormatInt(originalMsg.MessageId, 10)
+					ah.TopicHandlers.KeyboardMessageStore[cb] = keyboardMsgId
+				}
+				ah.TopicHandlers.KeyboardMessageStore[backCallbackData] = keyboardMsgId
+			}
+		}
+	} else {
+		// Send new message with topics
+		newMsg, err := ah.messageService.SendMessage(originalMsg.Chat.Id, config.ChooseFromAllTopicsMessage, &gotgbot.SendMessageOpts{
+			MessageThreadId: originalMsg.MessageThreadId,
+			ReplyMarkup:     *keyboard,
+		})
+		if err != nil {
+			logutils.Error("HandleShowExistingFolders: SendMessageError", err, "chatID", originalMsg.Chat.Id)
+		} else {
+			ah.keyboardMessageStore[callbackData] = int(newMsg.MessageId)
+			if ah.TopicHandlers != nil {
+				for _, topic := range topics {
+					cb := topic.Name + "_" + strconv.FormatInt(originalMsg.MessageId, 10)
+					ah.TopicHandlers.KeyboardMessageStore[cb] = int(newMsg.MessageId)
+				}
+				ah.TopicHandlers.KeyboardMessageStore[backCallbackData] = int(newMsg.MessageId)
+			}
+		}
+	}
+
+	logutils.Success("HandleShowExistingFolders", "chatID", originalMsg.Chat.Id)
+	return nil
+}
+
 // Helper methods
 func (ah *AIHandlers) getTopicNames(topics []interfaces.ForumTopic) []string {
 	var names []string
@@ -290,6 +385,14 @@ func (ah *AIHandlers) storeMessageReferences(msg *gotgbot.Message, suggestions [
 
 	retryCallbackData := config.CallbackPrefixRetry + strconv.FormatInt(msg.MessageId, 10)
 	ah.messageStore[retryCallbackData] = msg
+
+	showExistingFoldersCallbackData := "show_existing_folders_" + strconv.FormatInt(msg.MessageId, 10)
+	ah.messageStore[showExistingFoldersCallbackData] = msg
+
+	// Store in TopicHandlers.MessageStore for callback lookup
+	if ah.TopicHandlers != nil {
+		ah.TopicHandlers.MessageStore[showExistingFoldersCallbackData] = msg
+	}
 }
 
 func (ah *AIHandlers) storeKeyboardMessageIDs(msg *gotgbot.Message, suggestions []string, topics []interfaces.ForumTopic, keyboardMsgID int) {
@@ -324,6 +427,9 @@ func (ah *AIHandlers) storeKeyboardMessageIDs(msg *gotgbot.Message, suggestions 
 
 	retryCallbackData := config.CallbackPrefixRetry + strconv.FormatInt(msg.MessageId, 10)
 	ah.keyboardMessageStore[retryCallbackData] = keyboardMsgID
+
+	showExistingFoldersCallbackData := "show_existing_folders_" + strconv.FormatInt(msg.MessageId, 10)
+	ah.keyboardMessageStore[showExistingFoldersCallbackData] = keyboardMsgID
 }
 
 func (ah *AIHandlers) tryUpdateExistingMessage(msg *gotgbot.Message, keyboard *gotgbot.InlineKeyboardMarkup) {

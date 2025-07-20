@@ -107,6 +107,9 @@ func (ch *CallbackHandlers) HandleCallbackQuery(update *gotgbot.Update) error {
 	case strings.HasPrefix(callbackData, config.CallbackPrefixRetry):
 		logutils.Info("HandleCallbackQuery: Routing to RetryCallback", "chatID", chatID, "callbackData", callbackData)
 		err = ch.AIHandlers.HandleRetryCallback(update, originalMsg)
+	case strings.HasPrefix(callbackData, "show_existing_folders_"):
+		logutils.Info("HandleCallbackQuery: Routing to ShowExistingFolders", "chatID", chatID, "callbackData", callbackData)
+		err = ch.AIHandlers.HandleShowExistingFolders(update, originalMsg)
 	case strings.HasPrefix(callbackData, config.CallbackPrefixShowAllTopics):
 		logutils.Info("HandleCallbackQuery: Routing to ShowAllTopicsCallback", "chatID", chatID, "callbackData", callbackData)
 		err = ch.TopicHandlers.HandleShowAllTopicsCallback(update, originalMsg)
