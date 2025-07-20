@@ -84,6 +84,7 @@ func (ah *AIHandlers) HandleGeneralTopicMessage(update *gotgbot.Update) error {
 		ah.storeMessageReferences(msg, suggestions, topics)
 
 		// Update the waiting message with suggestions
+		log.Printf("[AIHandlers] Updating waiting message: ChatID=%d, MessageID=%d, Text='%s'", msg.Chat.Id, waitingMsg.MessageId, config.ChooseFolderMessage)
 		_, err = ah.messageService.EditMessageText(msg.Chat.Id, int64(waitingMsg.MessageId), config.ChooseFolderMessage, &gotgbot.EditMessageTextOpts{
 			ReplyMarkup: *keyboard,
 		})
@@ -92,6 +93,7 @@ func (ah *AIHandlers) HandleGeneralTopicMessage(update *gotgbot.Update) error {
 			// If update fails, try to find the message by searching through all stored keyboard messages
 			ah.tryUpdateExistingMessage(msg, keyboard)
 		} else {
+			log.Printf("[AIHandlers] Successfully updated waiting message with keyboard")
 			// Store keyboard message ID for all suggestion buttons
 			ah.storeKeyboardMessageIDs(msg, suggestions, topics, int(waitingMsg.MessageId))
 		}

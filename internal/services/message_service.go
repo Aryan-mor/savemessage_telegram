@@ -258,14 +258,14 @@ func (ms *MessageService) EditMessageText(chatID int64, messageID int64, text st
 		if opts.ParseMode != "" {
 			requestBody["parse_mode"] = opts.ParseMode
 		}
-		// ReplyMarkup is not a pointer, so we can't check for nil
-		// We'll include it if it's not the zero value
-		if opts.ReplyMarkup.InlineKeyboard != nil {
+		// Check if ReplyMarkup has any content
+		if len(opts.ReplyMarkup.InlineKeyboard) > 0 {
 			requestBody["reply_markup"] = opts.ReplyMarkup
 		}
 	}
 
 	bodyBytes, _ := json.Marshal(requestBody)
+	log.Printf("[MessageService] Edit request body: %s", string(bodyBytes))
 
 	req, err := http.NewRequest("POST", url, strings.NewReader(string(bodyBytes)))
 	if err != nil {
@@ -283,6 +283,7 @@ func (ms *MessageService) EditMessageText(chatID int64, messageID int64, text st
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
+	log.Printf("[MessageService] Edit response: %s", string(body))
 
 	var result struct {
 		Ok     bool            `json:"ok"`
