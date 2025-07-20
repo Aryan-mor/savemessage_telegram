@@ -122,6 +122,9 @@ func InitializeBot(config *BotConfig) (*BotInstance, error) {
 		messageService,
 	)
 
+	// Set the bot's user ID for self-detection in join events
+	dispatcher.BotUserID = bot.User.Id
+
 	instance := &BotInstance{
 		Bot:              bot,
 		Config:           config,

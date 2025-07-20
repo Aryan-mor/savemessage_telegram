@@ -8,6 +8,7 @@ import (
 
 	gotgbot "github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 // --- MOCKS FOR ROUTER TESTS ---
@@ -446,4 +447,129 @@ func TestDispatcher_IsMessageInGeneralTopic(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+// Fake implementation of MessageHandlersInterface for testing
+// Only HandleStartCommand is asserted, others are no-ops
+
+type fakeMessageHandlers struct {
+	mock.Mock
+}
+
+func (f *fakeMessageHandlers) HandleStartCommand(update *gotgbot.Update) error {
+	f.Called(update)
+	return nil
+}
+func (f *fakeMessageHandlers) HandleHelpCommand(update *gotgbot.Update) error            { return nil }
+func (f *fakeMessageHandlers) HandleTopicsCommand(update *gotgbot.Update) error          { return nil }
+func (f *fakeMessageHandlers) HandleAddTopicCommand(update *gotgbot.Update) error        { return nil }
+func (f *fakeMessageHandlers) HandleBotMention(update *gotgbot.Update) error             { return nil }
+func (f *fakeMessageHandlers) HandleNonGeneralTopicMessage(update *gotgbot.Update) error { return nil }
+func (f *fakeMessageHandlers) HandleGeneralTopicMessage(update *gotgbot.Update) error    { return nil }
+func (f *fakeMessageHandlers) HandleTopicNameEntry(update *gotgbot.Update) error         { return nil }
+
+// Minimal fake implementation of CallbackHandlersInterface for testing
+// All methods are no-ops
+
+type fakeCallbackHandlers struct{}
+
+func (f *fakeCallbackHandlers) HandleCallbackQuery(update *gotgbot.Update) error  { return nil }
+func (f *fakeCallbackHandlers) IsRecentlyMovedMessage(messageID int64) bool       { return false }
+func (f *fakeCallbackHandlers) CleanupMovedMessage(messageID int64)               {}
+func (f *fakeCallbackHandlers) IsWaitingForTopicName(userID int64) bool           { return false }
+func (f *fakeCallbackHandlers) HandleTopicNameEntry(update *gotgbot.Update) error { return nil }
+
+// Minimal fake implementation of MessageServiceInterface for testing
+// All methods are no-ops
+
+type fakeMessageService struct{}
+
+func (f *fakeMessageService) DeleteMessage(chatID int64, messageID int) error { return nil }
+func (f *fakeMessageService) CopyMessageToTopic(chatID int64, fromChatID int64, messageID int, messageThreadID int) error {
+	return nil
+}
+func (f *fakeMessageService) CopyMessageToTopicWithResult(chatID int64, fromChatID int64, messageID int, messageThreadID int) (*gotgbot.Message, error) {
+	return nil, nil
+}
+func (f *fakeMessageService) SendMessage(chatID int64, text string, opts *gotgbot.SendMessageOpts) (*gotgbot.Message, error) {
+	return nil, nil
+}
+func (f *fakeMessageService) EditMessageText(chatID int64, messageID int64, text string, opts *gotgbot.EditMessageTextOpts) (*gotgbot.Message, error) {
+	return nil, nil
+}
+func (f *fakeMessageService) AnswerCallbackQuery(callbackQueryID string, opts *gotgbot.AnswerCallbackQueryOpts) error {
+	return nil
+}
+
+// Regression test: ensures that when the bot is added to a group as admin/member via my_chat_member update,
+// the welcome message handler is called. This prevents silent breakage of the group join welcome flow.
+func TestDispatcher_HandleUpdate_MyChatMember_BotAdded_SendsWelcome(t *testing.T) {
+	// Prepare dispatcher with fake handler
+	mh := &fakeMessageHandlers{}
+	ch := &fakeCallbackHandlers{}
+	ms := &fakeMessageService{}
+	d := NewDispatcher(mh, ch, ms)
+
+	// Simulate a my_chat_member update where the bot is added as administrator
+	chat := gotgbot.Chat{Id: 12345, Title: "Test Group", Type: "supergroup"}
+	botUser := gotgbot.User{Id: 999, IsBot: true, Username: "mybot"}
+	admin := gotgbot.ChatMemberAdministrator{User: botUser}
+	update := &gotgbot.Update{
+		MyChatMember: &gotgbot.ChatMemberUpdated{
+			Chat:          chat,
+			NewChatMember: admin,
+		},
+	}
+
+	mh.On("HandleStartCommand", mock.Anything).Return(nil).Once()
+
+	err := d.HandleUpdate(update)
+	assert.NoError(t, err)
+	mh.AssertCalled(t, "HandleStartCommand", mock.Anything)
+}
+
+// Minimal fakeMessageHandlers for regression test
+
+type fakeMessageHandlersForJoin struct {
+	interfaces.MessageHandlersInterface
+	called bool
+}
+
+func (f *fakeMessageHandlersForJoin) HandleGeneralTopicMessage(update *gotgbot.Update) error {
+	f.called = true
+	return nil
+}
+func (f *fakeMessageHandlersForJoin) HandleStartCommand(update *gotgbot.Update) error    { return nil }
+func (f *fakeMessageHandlersForJoin) HandleHelpCommand(update *gotgbot.Update) error     { return nil }
+func (f *fakeMessageHandlersForJoin) HandleTopicsCommand(update *gotgbot.Update) error   { return nil }
+func (f *fakeMessageHandlersForJoin) HandleAddTopicCommand(update *gotgbot.Update) error { return nil }
+func (f *fakeMessageHandlersForJoin) HandleBotMention(update *gotgbot.Update) error      { return nil }
+func (f *fakeMessageHandlersForJoin) HandleNonGeneralTopicMessage(update *gotgbot.Update) error {
+	return nil
+}
+func (f *fakeMessageHandlersForJoin) HandleTopicNameEntry(update *gotgbot.Update) error { return nil }
+
+// Regression test: ensures that when the bot receives a join message for itself (new_chat_members contains the bot),
+// it does NOT process it as a regular message (i.e., does not call HandleGeneralTopicMessage or send 'Thinking...').
+func TestDispatcher_HandleMessage_BotJoinMessage_IsIgnored(t *testing.T) {
+	mh := &fakeMessageHandlersForJoin{}
+	ch := &fakeCallbackHandlers{}
+	ms := &fakeMessageService{}
+	d := NewDispatcher(mh, ch, ms)
+	d.BotUserID = 999
+
+	// Simulate a message where the bot is in new_chat_members
+	chat := gotgbot.Chat{Id: 12345, Title: "Test Group", Type: "supergroup"}
+	botUser := gotgbot.User{Id: 999, IsBot: true, Username: "mybot"}
+	msg := &gotgbot.Message{
+		Chat:           chat,
+		MessageId:      123,
+		NewChatMembers: []gotgbot.User{botUser},
+		From:           &gotgbot.User{Id: 111, IsBot: false, Username: "admin"},
+	}
+	update := &gotgbot.Update{Message: msg}
+
+	err := d.HandleUpdate(update)
+	assert.NoError(t, err)
+	assert.False(t, mh.called, "HandleGeneralTopicMessage should NOT be called for bot's own join message")
 }

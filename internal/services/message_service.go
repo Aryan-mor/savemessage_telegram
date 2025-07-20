@@ -33,7 +33,7 @@ var _ interfaces.MessageServiceInterface = (*MessageService)(nil)
 
 // DeleteMessage deletes a message from a chat
 func (ms *MessageService) DeleteMessage(chatID int64, messageID int) error {
-	logutils.Info("DeleteMessage", "chatID", chatID, "messageID", messageID)
+	logutils.Info("DeleteMessage: entry", "chatID", chatID, "messageID", messageID)
 
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/deleteMessage", ms.BotToken)
 
@@ -60,6 +60,7 @@ func (ms *MessageService) DeleteMessage(chatID int64, messageID int) error {
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
+	logutils.Info("DeleteMessage: API response", "chatID", chatID, "messageID", messageID, "body", string(body))
 
 	var result struct {
 		Ok bool `json:"ok"`
@@ -76,7 +77,7 @@ func (ms *MessageService) DeleteMessage(chatID int64, messageID int) error {
 		return err
 	}
 
-	logutils.Success("DeleteMessage", "chatID", chatID, "messageID", messageID)
+	logutils.Success("DeleteMessage: exit", "chatID", chatID, "messageID", messageID)
 	return nil
 }
 

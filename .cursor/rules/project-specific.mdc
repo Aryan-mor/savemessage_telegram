@@ -1,8 +1,8 @@
 ---
-alwaysApply: true
 description: Project-Specific Rules for GameHub project
 rules:
   - Follow existing code patterns and conventions in the project
   - Maintain consistency with the current codebase structure
   - Prioritize functionality over verbose explanations
+alwaysApply: true
 ---

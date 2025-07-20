@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"strconv"
-	"strings"
 
 	"save-message/internal/config"
 	"save-message/internal/interfaces"
@@ -23,79 +22,22 @@ func NewKeyboardBuilder() *KeyboardBuilder {
 func (kb *KeyboardBuilder) BuildSuggestionKeyboard(msg *gotgbot.Message, suggestions []string, topics []interfaces.ForumTopic) (*gotgbot.InlineKeyboardMarkup, error) {
 	logutils.Info("BuildSuggestionKeyboard: entry", "messageID", msg.MessageId)
 	var rows [][]gotgbot.InlineKeyboardButton
-
-	// Separate existing and new topics
-	var existingTopics []string
-	var newTopics []string
-
-	for _, folder := range suggestions {
-		// Check if this is an existing topic (case-insensitive)
-		isExisting := false
-		var existingTopicName string
-		for _, topic := range topics {
-			if strings.EqualFold(topic.Name, folder) {
-				isExisting = true
-				existingTopicName = topic.Name // Use the exact name from the topic
-				break
-			}
-		}
-
-		// Skip General topic
-		if strings.EqualFold(folder, "General") {
-			continue
-		}
-
-		if isExisting {
-			existingTopics = append(existingTopics, existingTopicName) // Use exact name
-		} else {
-			newTopics = append(newTopics, folder)
-		}
+	for _, suggestion := range suggestions {
+		rows = append(rows, []gotgbot.InlineKeyboardButton{{
+			Text:         "➕ " + suggestion,
+			CallbackData: suggestion + "_" + strconv.FormatInt(int64(msg.MessageId), 10),
+		}})
 	}
-
-	// Add existing topics with folder icon
-	for _, folder := range existingTopics {
-		callbackData := folder + "_" + strconv.FormatInt(msg.MessageId, 10)
-		rows = append(rows, []gotgbot.InlineKeyboardButton{{Text: config.IconFolder + " " + folder, CallbackData: callbackData}})
+	// Add create new topic button
+	rows = append(rows, []gotgbot.InlineKeyboardButton{{
+		Text:         "📝 Create New Topic",
+		CallbackData: "create_new_folder_" + strconv.FormatInt(int64(msg.MessageId), 10),
+	}})
+	keyboard := &gotgbot.InlineKeyboardMarkup{
+		InlineKeyboard: rows,
 	}
-
-	// Add new topics with plus icon
-	for _, folder := range newTopics {
-		cleanFolder := strings.TrimSpace(folder)
-		// Skip suggestions that are too long or contain newlines
-		if len(cleanFolder) == 0 || len(cleanFolder) > 50 || strings.Contains(cleanFolder, "\n") {
-			continue
-		}
-		callbackData := cleanFolder + "_" + strconv.FormatInt(msg.MessageId, 10)
-		rows = append(rows, []gotgbot.InlineKeyboardButton{{Text: config.IconNewFolder + " " + cleanFolder, CallbackData: callbackData}})
-	}
-
-	// Add create new folder option
-	createCallbackData := config.CallbackPrefixCreateNewFolder + strconv.FormatInt(msg.MessageId, 10)
-	createBtn := gotgbot.InlineKeyboardButton{Text: config.ButtonTextCreateNewTopic, CallbackData: createCallbackData}
-	rows = append(rows, []gotgbot.InlineKeyboardButton{createBtn})
-
-	// Add show all topics button if there are existing topics
-	showAllCallbackData := ""
-	if len(topics) > 0 {
-		showAllCallbackData = config.CallbackPrefixShowAllTopics + strconv.FormatInt(msg.MessageId, 10)
-		showAllBtn := gotgbot.InlineKeyboardButton{Text: config.ButtonTextShowAllTopics, CallbackData: showAllCallbackData}
-		rows = append(rows, []gotgbot.InlineKeyboardButton{showAllBtn})
-	}
-
-	// Add retry button
-	retryCallbackData := config.CallbackPrefixRetry + strconv.FormatInt(msg.MessageId, 10)
-	retryBtn := gotgbot.InlineKeyboardButton{Text: config.ButtonTextTryAgain, CallbackData: retryCallbackData}
-	rows = append(rows, []gotgbot.InlineKeyboardButton{retryBtn})
-
-	result, err := func() (*gotgbot.InlineKeyboardMarkup, error) {
-		return &gotgbot.InlineKeyboardMarkup{InlineKeyboard: rows}, nil
-	}()
-	if err == nil {
-		logutils.Success("BuildSuggestionKeyboard: exit", "messageID", msg.MessageId)
-	} else {
-		logutils.Error("BuildSuggestionKeyboard: exit", err, "messageID", msg.MessageId)
-	}
-	return result, err
+	logutils.Success("BuildSuggestionKeyboard: exit", "messageID", msg.MessageId)
+	return keyboard, nil
 }
 
 // BuildAllTopicsKeyboard builds keyboard for showing all topics

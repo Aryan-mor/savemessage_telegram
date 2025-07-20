@@ -18,100 +18,136 @@ func TestNewKeyboardBuilder(t *testing.T) {
 }
 
 func TestKeyboardBuilder_BuildSuggestionKeyboard(t *testing.T) {
-	kb := NewKeyboardBuilder()
-
-	tests := []struct {
-		name        string
-		msg         *gotgbot.Message
-		suggestions []string
-		topics      []interfaces.ForumTopic
-		expectRows  int
-		expectError bool
-	}{
-		{
-			name:        "successful_suggestion_keyboard",
-			msg:         &gotgbot.Message{MessageId: 123},
-			suggestions: []string{"Programming", "Development"},
-			topics: []interfaces.ForumTopic{
-				{Name: "Work", ID: 1},
-				{Name: "General", ID: 2},
-			},
-			expectRows:  5, // 2 suggestions + create + show all + retry
-			expectError: false,
-		},
-		{
-			name:        "empty_suggestions",
-			msg:         &gotgbot.Message{MessageId: 456},
-			suggestions: []string{},
-			topics: []interfaces.ForumTopic{
-				{Name: "Work", ID: 1},
-			},
-			expectRows:  3, // create + show all + retry
-			expectError: false,
-		},
-		{
-			name:        "nil_suggestions",
-			msg:         &gotgbot.Message{MessageId: 789},
-			suggestions: nil,
-			topics: []interfaces.ForumTopic{
-				{Name: "Work", ID: 1},
-			},
-			expectRows:  3, // create + show all + retry
-			expectError: false,
-		},
-		{
-			name:        "no_existing_topics",
-			msg:         &gotgbot.Message{MessageId: 999},
-			suggestions: []string{"Programming"},
-			topics:      []interfaces.ForumTopic{},
-			expectRows:  3, // 1 suggestion + create + retry (no show all)
-			expectError: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			keyboard, err := kb.BuildSuggestionKeyboard(tt.msg, tt.suggestions, tt.topics)
-
-			if tt.expectError {
-				assert.Error(t, err)
-				assert.Nil(t, keyboard)
-				return
-			}
-
-			assert.NoError(t, err)
-			assert.NotNil(t, keyboard)
-			assert.Len(t, keyboard.InlineKeyboard, tt.expectRows)
-
-			// Check for required buttons
-			hasCreateButton := false
-			hasRetryButton := false
-			hasShowAllButton := false
-
-			for _, row := range keyboard.InlineKeyboard {
-				for _, button := range row {
-					if button.CallbackData == config.CallbackPrefixCreateNewFolder+strconv.FormatInt(tt.msg.MessageId, 10) {
-						hasCreateButton = true
-					}
-					if button.CallbackData == config.CallbackPrefixRetry+strconv.FormatInt(tt.msg.MessageId, 10) {
-						hasRetryButton = true
-					}
-					if button.CallbackData == config.CallbackPrefixShowAllTopics+strconv.FormatInt(tt.msg.MessageId, 10) {
-						hasShowAllButton = true
-					}
+	builder := NewKeyboardBuilder()
+	msg := &gotgbot.Message{MessageId: 123, Chat: gotgbot.Chat{Id: 456}}
+	t.Run("successful_suggestion_keyboard", func(t *testing.T) {
+		suggestions := []string{"Programming", "Development"}
+		topics := []interfaces.ForumTopic{}
+		keyboard, err := builder.BuildSuggestionKeyboard(msg, suggestions, topics)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		var foundCreate, foundProgramming, foundDevelopment bool
+		for _, row := range keyboard.InlineKeyboard {
+			for _, btn := range row {
+				if btn.Text == "📝 Create New Topic" {
+					foundCreate = true
+				}
+				if btn.Text == "➕ Programming" {
+					foundProgramming = true
+				}
+				if btn.Text == "➕ Development" {
+					foundDevelopment = true
+				}
+				if btn.Text == "🔄 Try Again" {
+					t.Errorf("Retry button should NOT be present in the keyboard, but was found")
 				}
 			}
+		}
+		if !foundCreate {
+			t.Errorf("Create New Topic button not found")
+		}
+		if !foundProgramming {
+			t.Errorf("Programming suggestion not found")
+		}
+		if !foundDevelopment {
+			t.Errorf("Development suggestion not found")
+		}
+	})
 
-			assert.True(t, hasCreateButton, "Should have create button")
-			assert.True(t, hasRetryButton, "Should have retry button")
-
-			// Show all button should only be present if there are existing topics
-			if len(tt.topics) > 0 {
-				assert.True(t, hasShowAllButton, "Should have show all button when topics exist")
-			} else {
-				assert.False(t, hasShowAllButton, "Should not have show all button when no topics exist")
+	t.Run("empty_suggestions", func(t *testing.T) {
+		suggestions := []string{}
+		topics := []interfaces.ForumTopic{}
+		keyboard, err := builder.BuildSuggestionKeyboard(msg, suggestions, topics)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		var foundCreate bool
+		for _, row := range keyboard.InlineKeyboard {
+			for _, btn := range row {
+				if btn.Text == "📝 Create New Topic" {
+					foundCreate = true
+				}
+				if btn.Text == "🔄 Try Again" {
+					t.Errorf("Retry button should NOT be present in the keyboard, but was found")
+				}
 			}
-		})
+		}
+		if !foundCreate {
+			t.Errorf("Create New Topic button not found")
+		}
+	})
+
+	t.Run("nil_suggestions", func(t *testing.T) {
+		var suggestions []string
+		topics := []interfaces.ForumTopic{}
+		keyboard, err := builder.BuildSuggestionKeyboard(msg, suggestions, topics)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		var foundCreate bool
+		for _, row := range keyboard.InlineKeyboard {
+			for _, btn := range row {
+				if btn.Text == "📝 Create New Topic" {
+					foundCreate = true
+				}
+				if btn.Text == "🔄 Try Again" {
+					t.Errorf("Retry button should NOT be present in the keyboard, but was found")
+				}
+			}
+		}
+		if !foundCreate {
+			t.Errorf("Create New Topic button not found")
+		}
+	})
+
+	t.Run("no_existing_topics", func(t *testing.T) {
+		suggestions := []string{"Programming"}
+		topics := []interfaces.ForumTopic{}
+		keyboard, err := builder.BuildSuggestionKeyboard(msg, suggestions, topics)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		var foundProgramming, foundCreate bool
+		for _, row := range keyboard.InlineKeyboard {
+			for _, btn := range row {
+				if btn.Text == "➕ Programming" {
+					foundProgramming = true
+				}
+				if btn.Text == "📝 Create New Topic" {
+					foundCreate = true
+				}
+				if btn.Text == "🔄 Try Again" {
+					t.Errorf("Retry button should NOT be present in the keyboard, but was found")
+				}
+			}
+		}
+		if !foundProgramming {
+			t.Errorf("Programming suggestion not found")
+		}
+		if !foundCreate {
+			t.Errorf("Create New Topic button not found")
+		}
+	})
+}
+
+// Regression test: ensures that the '🔄 Try Again' button is NOT present in the keyboard returned by BuildSuggestionKeyboard.
+// This prevents accidental reintroduction of the retry button in the topic suggestion UI.
+func TestBuildSuggestionKeyboard_DoesNotIncludeRetryButton(t *testing.T) {
+	builder := NewKeyboardBuilder()
+	msg := &gotgbot.Message{MessageId: 123, Chat: gotgbot.Chat{Id: 456}}
+	suggestions := []string{"Topic1", "Topic2"}
+	topics := []interfaces.ForumTopic{}
+	keyboard, err := builder.BuildSuggestionKeyboard(msg, suggestions, topics)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, row := range keyboard.InlineKeyboard {
+		for _, btn := range row {
+			if btn.Text == "🔄 Try Again" {
+				t.Errorf("Retry button should NOT be present in the keyboard, but was found")
+			}
+		}
 	}
 }
 

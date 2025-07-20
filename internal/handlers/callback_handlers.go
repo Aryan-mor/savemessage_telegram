@@ -56,6 +56,24 @@ func (ch *CallbackHandlers) HandleCallbackQuery(update *gotgbot.Update) error {
 		logutils.Success("HandleCallbackQuery: Callback query answered", "chatID", chatID, "callbackData", callbackData)
 	}
 
+	// Handle Help button callback
+	if callbackData == "show_help" {
+		logutils.Info("HandleCallbackQuery: Help button clicked", "chatID", chatID)
+		_, err := ch.MessageService.SendMessage(chatID, config.HelpMessage, &gotgbot.SendMessageOpts{
+			ParseMode: "Markdown",
+		})
+		if err != nil {
+			logutils.Error("HandleCallbackQuery: Failed to send help message", err, "chatID", chatID)
+		} else {
+			logutils.Success("HandleCallbackQuery: Help message sent", "chatID", chatID)
+		}
+		// Answer the callback with a confirmation
+		err = ch.MessageService.AnswerCallbackQuery(update.CallbackQuery.Id, &gotgbot.AnswerCallbackQueryOpts{
+			Text: "Help sent!",
+		})
+		return err
+	}
+
 	// Special handling for warning callbacks
 	if ch.WarningHandlers.IsWarningCallback(callbackData) {
 		logutils.Info("HandleCallbackQuery: Handling warning callback", "chatID", chatID, "callbackData", callbackData)

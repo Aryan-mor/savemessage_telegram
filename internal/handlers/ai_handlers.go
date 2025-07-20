@@ -100,10 +100,21 @@ func (ah *AIHandlers) HandleGeneralTopicMessage(update *gotgbot.Update) error {
 			logutils.Error("HandleGeneralTopicMessage: EditMessageTextError", err, "chatID", msg.Chat.Id, "messageID", waitingMsg.MessageId)
 			// If update fails, try to find the message by searching through all stored keyboard messages
 			ah.tryUpdateExistingMessage(msg, keyboard)
+			// Only delete the waitingMsg if the edit failed (i.e., a new message will be sent)
+			if waitingMsg != nil {
+				logutils.Info("HandleGeneralTopicMessage: Attempting to delete 'Thinking...' message after edit failure", "chatID", msg.Chat.Id, "messageID", waitingMsg.MessageId, "text", waitingMsg.Text)
+				err := ah.messageService.DeleteMessage(msg.Chat.Id, int(waitingMsg.MessageId))
+				if err != nil {
+					logutils.Error("HandleGeneralTopicMessage: Failed to delete 'Thinking...' message", err, "chatID", msg.Chat.Id, "messageID", waitingMsg.MessageId)
+				} else {
+					logutils.Success("HandleGeneralTopicMessage: Deleted 'Thinking...' message", "chatID", msg.Chat.Id, "messageID", waitingMsg.MessageId)
+				}
+			}
 		} else {
 			logutils.Success("HandleGeneralTopicMessage: Successfully updated waiting message with keyboard", "chatID", msg.Chat.Id)
 			// Store keyboard message ID for all suggestion buttons
 			ah.storeKeyboardMessageIDs(msg, suggestions, topics, int(waitingMsg.MessageId))
+			// Do NOT delete the message if edit succeeded
 		}
 	}(update.Message)
 

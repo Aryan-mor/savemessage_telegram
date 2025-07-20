@@ -35,7 +35,15 @@ func NewCommandHandlers(messageService interfaces.MessageServiceInterface, topic
 func (ch *CommandHandlers) HandleStartCommand(update *gotgbot.Update) error {
 	logutils.Info("HandleStartCommand", "chatID", update.Message.Chat.Id)
 
-	_, err := ch.MessageService.SendMessage(update.Message.Chat.Id, config.WelcomeMessage, nil)
+	keyboard := &gotgbot.InlineKeyboardMarkup{
+		InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
+			{{Text: "Help", CallbackData: "show_help"}},
+		},
+	}
+
+	_, err := ch.MessageService.SendMessage(update.Message.Chat.Id, config.WelcomeMessage, &gotgbot.SendMessageOpts{
+		ReplyMarkup: *keyboard,
+	})
 	if err != nil {
 		logutils.Error("HandleStartCommand: SendMessageError", err, "chatID", update.Message.Chat.Id)
 		return err

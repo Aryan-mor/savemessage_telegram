@@ -1,6 +1,7 @@
 package router
 
 import (
+	"fmt"
 	"strings"
 
 	"save-message/internal/config"
@@ -15,6 +16,7 @@ type Dispatcher struct {
 	MessageHandlers  interfaces.MessageHandlersInterface
 	CallbackHandlers interfaces.CallbackHandlersInterface
 	MessageService   interfaces.MessageServiceInterface
+	BotUserID        int64 // Add a BotUserID field to Dispatcher for bot self-detection
 }
 
 // NewDispatcher creates a new Dispatcher.
@@ -46,7 +48,72 @@ func (d *Dispatcher) HandleUpdate(update *gotgbot.Update) error {
 		chat := update.MyChatMember.Chat
 		from := update.MyChatMember.From
 		logutils.Info("HandleUpdate: my_chat_member event", "chatID", chat.Id, "chatTitle", chat.Title, "fromUser", from.Username, "oldChatMember", update.MyChatMember.OldChatMember, "newChatMember", update.MyChatMember.NewChatMember)
-		// (Welcome message logic temporarily removed until correct status field is confirmed)
+
+		// Use type switch to extract isBot and status, and log the type for debugging
+		var isBot bool
+		var status string
+		switch member := update.MyChatMember.NewChatMember.(type) {
+		case *gotgbot.ChatMemberAdministrator:
+			logutils.Info("my_chat_member type: *ChatMemberAdministrator", "user", member.User, "status", "administrator")
+			isBot = member.User.IsBot
+			status = "administrator"
+		case gotgbot.ChatMemberAdministrator:
+			logutils.Info("my_chat_member type: ChatMemberAdministrator", "user", member.User, "status", "administrator")
+			isBot = member.User.IsBot
+			status = "administrator"
+		case *gotgbot.ChatMemberMember:
+			logutils.Info("my_chat_member type: *ChatMemberMember", "user", member.User, "status", "member")
+			isBot = member.User.IsBot
+			status = "member"
+		case gotgbot.ChatMemberMember:
+			logutils.Info("my_chat_member type: ChatMemberMember", "user", member.User, "status", "member")
+			isBot = member.User.IsBot
+			status = "member"
+		case *gotgbot.ChatMemberOwner:
+			logutils.Info("my_chat_member type: *ChatMemberOwner", "user", member.User, "status", "owner")
+			isBot = member.User.IsBot
+			status = "owner"
+		case gotgbot.ChatMemberOwner:
+			logutils.Info("my_chat_member type: ChatMemberOwner", "user", member.User, "status", "owner")
+			isBot = member.User.IsBot
+			status = "owner"
+		case *gotgbot.ChatMemberRestricted:
+			logutils.Info("my_chat_member type: *ChatMemberRestricted", "user", member.User, "status", "restricted")
+			isBot = member.User.IsBot
+			status = "restricted"
+		case gotgbot.ChatMemberRestricted:
+			logutils.Info("my_chat_member type: ChatMemberRestricted", "user", member.User, "status", "restricted")
+			isBot = member.User.IsBot
+			status = "restricted"
+		case *gotgbot.ChatMemberLeft:
+			logutils.Info("my_chat_member type: *ChatMemberLeft", "user", member.User, "status", "left")
+			isBot = member.User.IsBot
+			status = "left"
+		case gotgbot.ChatMemberLeft:
+			logutils.Info("my_chat_member type: ChatMemberLeft", "user", member.User, "status", "left")
+			isBot = member.User.IsBot
+			status = "left"
+		case *gotgbot.ChatMemberBanned:
+			logutils.Info("my_chat_member type: *ChatMemberBanned", "user", member.User, "status", "kicked")
+			isBot = member.User.IsBot
+			status = "kicked"
+		case gotgbot.ChatMemberBanned:
+			logutils.Info("my_chat_member type: ChatMemberBanned", "user", member.User, "status", "kicked")
+			isBot = member.User.IsBot
+			status = "kicked"
+		default:
+			logutils.Warn("my_chat_member type: unknown", "type", fmt.Sprintf("%T", member), "value", member)
+		}
+
+		// Only send welcome if the bot is added as member or admin
+		if isBot && (status == "member" || status == "administrator") {
+			logutils.Info("HandleUpdate: Bot added to group via my_chat_member, sending welcome message", "chatID", chat.Id)
+			fakeUpdate := &gotgbot.Update{Message: &gotgbot.Message{Chat: chat}}
+			err := d.MessageHandlers.HandleStartCommand(fakeUpdate)
+			if err != nil {
+				logutils.Error("HandleUpdate: Failed to send welcome message via my_chat_member", err, "chatID", chat.Id)
+			}
+		}
 		logutils.Success("HandleUpdate: my_chat_member event processed", "chatID", chat.Id)
 		return nil
 	}
@@ -79,6 +146,16 @@ func (d *Dispatcher) HandleUpdate(update *gotgbot.Update) error {
 // handleMessage routes message updates to appropriate handlers
 func (d *Dispatcher) handleMessage(update *gotgbot.Update) error {
 	logutils.Info("handleMessage", "chatID", update.Message.Chat.Id, "messageID", update.Message.MessageId, "threadID", update.Message.MessageThreadId)
+
+	// Prevent processing the bot's own join message as a regular message
+	if update.Message.NewChatMembers != nil {
+		for _, member := range update.Message.NewChatMembers {
+			if member.IsBot && d.BotUserID != 0 && member.Id == d.BotUserID {
+				logutils.Info("handleMessage: Skipping bot's own join message", "chatID", update.Message.Chat.Id)
+				return nil
+			}
+		}
+	}
 
 	// Check if this is a new chat member (bot just joined)
 	if update.Message.NewChatMembers != nil {

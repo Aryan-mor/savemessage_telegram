@@ -13,7 +13,7 @@ help:
 
 # Run the bot
 run:
-	go run main.go
+	go run cmd/modular/main.go
 
 # Run all tests with verbose output
 test:
@@ -39,7 +39,7 @@ clean:
 
 # Build the bot binary
 build:
-	go build -o bot_modular main.go
+	go build -o bot_modular cmd/modular/main.go
 
 # Build modular version
 build-modular:

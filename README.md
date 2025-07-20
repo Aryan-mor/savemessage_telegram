@@ -38,7 +38,7 @@ A privacy-first, smart Telegram bot to enhance the "Saved Messages" experience u
    ```
 4. **Run the bot:**
    ```
-   go run main.go
+   go run cmd/modular/main.go
    ```
 
 ## Requirements

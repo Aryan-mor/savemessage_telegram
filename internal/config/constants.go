@@ -15,12 +15,6 @@ const (
 • Click on a suggested folder to save your message there
 • Use "📁 Show All Topics" to browse all existing topics
 
-**Commands:**
-• /start - Start the bot
-• /help - Show this help message
-• /topics - List all your topics
-• /addtopic - Create a new topic manually
-
 **Important:** ⚠️ **Don't create topics manually in Save message group!** Let the bot create them automatically when you save messages. This ensures proper organization and prevents confusion.
 
 **Tips:**
