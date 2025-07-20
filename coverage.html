@@ -1,0 +1,3236 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>modular: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">save-message/cmd/modular/main.go (0.0%)</option>
+				
+				<option value="file1">save-message/internal/ai/openai.go (48.7%)</option>
+				
+				<option value="file2">save-message/internal/bot/handler.go (50.0%)</option>
+				
+				<option value="file3">save-message/internal/config/env.go (100.0%)</option>
+				
+				<option value="file4">save-message/internal/database/database.go (88.1%)</option>
+				
+				<option value="file5">save-message/internal/handlers/ai_handlers.go (0.0%)</option>
+				
+				<option value="file6">save-message/internal/handlers/callback_handlers.go (10.6%)</option>
+				
+				<option value="file7">save-message/internal/handlers/command_handlers.go (31.6%)</option>
+				
+				<option value="file8">save-message/internal/handlers/keyboard_builder.go (83.7%)</option>
+				
+				<option value="file9">save-message/internal/handlers/message_handlers.go (34.0%)</option>
+				
+				<option value="file10">save-message/internal/handlers/topic_handlers.go (0.0%)</option>
+				
+				<option value="file11">save-message/internal/handlers/warning_handlers.go (77.4%)</option>
+				
+				<option value="file12">save-message/internal/logutils/logger.go (81.8%)</option>
+				
+				<option value="file13">save-message/internal/mocks/handlers/mock_ai_handlers.go (0.0%)</option>
+				
+				<option value="file14">save-message/internal/mocks/handlers/mock_message_service.go (0.0%)</option>
+				
+				<option value="file15">save-message/internal/mocks/handlers/mock_topic_handlers.go (0.0%)</option>
+				
+				<option value="file16">save-message/internal/mocks/handlers/mock_warning_handlers.go (0.0%)</option>
+				
+				<option value="file17">save-message/internal/router/dispatcher.go (29.3%)</option>
+				
+				<option value="file18">save-message/internal/router/router.go (100.0%)</option>
+				
+				<option value="file19">save-message/internal/services/ai_service.go (70.0%)</option>
+				
+				<option value="file20">save-message/internal/services/message_service.go (71.0%)</option>
+				
+				<option value="file21">save-message/internal/services/topic_service.go (87.1%)</option>
+				
+				<option value="file22">save-message/internal/setup/bot.go (52.6%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "log"
+        "strings"
+        "time"
+
+        "save-message/internal/setup"
+
+        "github.com/PaulSonOfLars/gotgbot/v2"
+)
+
+func main() <span class="cov0" title="0">{
+        // Load configuration
+        config, err := setup.LoadConfig()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Failed to load configuration: %v", err)
+        }</span>
+
+        // Initialize bot instance
+        <span class="cov0" title="0">botInstance, err := setup.InitializeBot(config)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Failed to initialize bot: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer botInstance.Cleanup()
+
+        // Start polling for updates
+        var offset int64 = 0
+        for </span><span class="cov0" title="0">{
+                updates, err := botInstance.Bot.GetUpdates(&amp;gotgbot.GetUpdatesOpts{
+                        Offset:  offset,
+                        Timeout: 10,
+                })
+                if err != nil </span><span class="cov0" title="0">{
+                        if !strings.Contains(err.Error(), "context deadline exceeded") </span><span class="cov0" title="0">{
+                                log.Printf("GetUpdates error: %v", err)
+                        }</span>
+                        <span class="cov0" title="0">time.Sleep(2 * time.Second)
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">for _, update := range updates </span><span class="cov0" title="0">{
+                        // Always increment offset for each update to prevent infinite loops
+                        if update.UpdateId &gt;= offset </span><span class="cov0" title="0">{
+                                offset = update.UpdateId + 1
+                        }</span>
+
+                        // Route update to appropriate handler
+                        <span class="cov0" title="0">err := botInstance.Dispatcher.HandleUpdate(&amp;update)
+                        if err != nil </span><span class="cov0" title="0">{
+                                log.Printf("Error handling update: %v", err)
+                        }</span>
+                }
+        }
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package ai
+
+import (
+        "bytes"
+        "context"
+        "encoding/json"
+        "fmt"
+        "io"
+        "net/http"
+
+        "save-message/internal/interfaces"
+)
+
+// OpenAIClient implements OpenAI API calls
+type OpenAIClient struct {
+        apiKey     string
+        httpClient interfaces.HTTPClient
+}
+
+// NewOpenAIClient creates a new OpenAI client
+func NewOpenAIClient(apiKey string, client interfaces.HTTPClient) *OpenAIClient <span class="cov8" title="1">{
+        return &amp;OpenAIClient{
+                apiKey:     apiKey,
+                httpClient: client,
+        }
+}</span>
+
+// SuggestFolders sends a message to OpenAI and returns suggested folder names
+func (c *OpenAIClient) SuggestFolders(ctx context.Context, message string, existingFolders []string) ([]string, error) <span class="cov0" title="0">{
+        prompt := buildPrompt(message, existingFolders)
+        requestBody := map[string]interface{}{
+                "model": "gpt-3.5-turbo",
+                "messages": []map[string]string{
+                        {"role": "system", "content": "You are an assistant that helps organize messages into folders (topics) for a Telegram user."},
+                        {"role": "user", "content": prompt},
+                },
+                "max_tokens": 64,
+        }
+        bodyBytes, _ := json.Marshal(requestBody)
+
+        req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(bodyBytes))
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("error creating request: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">req.Header.Set("Content-Type", "application/json")
+        req.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+        resp, err := c.httpClient.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("error sending request to OpenAI: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer resp.Body.Close()
+        respBody, _ := io.ReadAll(resp.Body)
+
+        var result struct {
+                Choices []struct {
+                        Message struct {
+                                Content string `json:"content"`
+                        } `json:"message"`
+                } `json:"choices"`
+        }
+        if err := json.Unmarshal(respBody, &amp;result); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("OpenAI response decode error: %w", err)
+        }</span>
+        <span class="cov0" title="0">if len(result.Choices) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("No choices returned from OpenAI")
+        }</span>
+
+        // Parse the folder suggestions from the response (expecting a comma-separated or list format)
+        // Example: "Folders: Work, Personal, Shopping"
+        // You may want to improve this parsing based on your prompt
+        <span class="cov0" title="0">folders := parseFolders(result.Choices[0].Message.Content)
+        return folders, nil</span>
+}
+
+// buildPrompt creates the prompt for OpenAI
+func buildPrompt(message string, existingFolders []string) string <span class="cov8" title="1">{
+        prompt := "Given the following message: '" + message + "'\n"
+
+        if len(existingFolders) &gt; 0 </span><span class="cov8" title="1">{
+                prompt += "Existing topics: " + fmt.Sprintf("%v", existingFolders) + "\n"
+                prompt += "IMPORTANT RULES:\n"
+                prompt += "1. ALWAYS check if any existing topics are relevant to this message FIRST\n"
+                prompt += "2. If an existing topic is relevant, include it in your suggestions\n"
+                prompt += "3. Only suggest NEW topics if NO existing topics are relevant\n"
+                prompt += "4. Never suggest 'General' as it's the default topic\n"
+                prompt += "5. Prioritize existing topics over new ones when both are relevant\n"
+                prompt += "Suggest 2-3 relevant topics for this message. Return only a comma-separated list of topic names."
+        }</span> else<span class="cov8" title="1"> {
+                prompt += "Suggest 2-3 relevant topic names for this message. Never suggest 'General' as it's the default topic. Return only a comma-separated list of topic names."
+        }</span>
+
+        <span class="cov8" title="1">return prompt</span>
+}
+
+// parseFolders parses a comma-separated list of folder names from the OpenAI response
+func parseFolders(response string) []string <span class="cov8" title="1">{
+        var folders []string
+        for _, f := range bytes.Split([]byte(response), []byte{','}) </span><span class="cov8" title="1">{
+                name := string(bytes.TrimSpace(f))
+                if name != "" </span><span class="cov8" title="1">{
+                        folders = append(folders, name)
+                }</span>
+        }
+        <span class="cov8" title="1">return folders</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package bot
+
+import (
+        "context"
+        "log"
+
+        "save-message/internal/config"
+
+        gotgbot "github.com/PaulSonOfLars/gotgbot/v2"
+)
+
+// Start initializes the bot and begins polling for updates
+func Start(ctx context.Context, cfg *config.Env) error <span class="cov8" title="1">{
+        bot, err := gotgbot.NewBot(cfg.TelegramBotToken, nil)
+        if err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+        <span class="cov0" title="0">log.Printf("Authorized on account %s", bot.User.Username)
+
+        // TODO: Re-implement update polling and topic logic using gotgbot's dispatcher/ext package.
+        // For now, just log that migration is in progress.
+        log.Println("[MIGRATION] gotgbot is installed. Please re-implement update polling and topic logic here.")
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package config
+
+import (
+        "fmt"
+        "os"
+
+        "github.com/joho/godotenv"
+)
+
+// Env holds environment configuration
+type Env struct {
+        TelegramBotToken string
+        OpenAIAPIKey     string
+}
+
+// LoadEnv loads environment variables from .env and returns Env struct
+func LoadEnv() (*Env, error) <span class="cov8" title="1">{
+        _ = godotenv.Load() // Ignore error if .env is missing, allow env vars
+        token := os.Getenv("TELEGRAM_BOT_TOKEN")
+        if token == "" </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("TELEGRAM_BOT_TOKEN is not set")
+        }</span>
+        <span class="cov8" title="1">openaiKey := os.Getenv("OPENAI_API_KEY")
+        if openaiKey == "" </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("OPENAI_API_KEY is not set")
+        }</span>
+        <span class="cov8" title="1">return &amp;Env{
+                TelegramBotToken: token,
+                OpenAIAPIKey:     openaiKey,
+        }, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package database
+
+import (
+        "database/sql"
+        "fmt"
+        "time"
+
+        _ "github.com/mattn/go-sqlite3"
+)
+
+type Database struct {
+        db *sql.DB
+}
+
+type User struct {
+        ID        int64
+        Username  string
+        FirstName string
+        LastName  string
+        CreatedAt time.Time
+}
+
+type Topic struct {
+        ID              int
+        ChatID          int64
+        Name            string
+        MessageThreadId int64
+        CreatedBy       int64
+        CreatedAt       time.Time
+}
+
+func NewDatabase(dbPath string) (*Database, error) <span class="cov8" title="1">{
+        db, err := sql.Open("sqlite3", dbPath)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to open database: %v", err)
+        }</span>
+
+        // Create tables if they don't exist
+        <span class="cov8" title="1">if err := createTables(db); err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to create tables: %v", err)
+        }</span>
+
+        <span class="cov8" title="1">return &amp;Database{db: db}, nil</span>
+}
+
+func createTables(db *sql.DB) error <span class="cov8" title="1">{
+        // Create users table
+        _, err := db.Exec(`
+                CREATE TABLE IF NOT EXISTS users (
+                        id INTEGER PRIMARY KEY,
+                        username TEXT,
+                        first_name TEXT,
+                        last_name TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+        `)
+        if err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+
+        // Create topics table
+        <span class="cov8" title="1">_, err = db.Exec(`
+                CREATE TABLE IF NOT EXISTS topics (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        chat_id INTEGER NOT NULL,
+                        name TEXT NOT NULL,
+                        message_thread_id INTEGER,
+                        created_by INTEGER,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(chat_id, name)
+                )
+        `)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// UpsertUser adds or updates a user
+func (d *Database) UpsertUser(userID int64, username, firstName, lastName string) error <span class="cov8" title="1">{
+        _, err := d.db.Exec(`
+                INSERT OR REPLACE INTO users (id, username, first_name, last_name, created_at)
+                VALUES (?, ?, ?, ?, COALESCE((SELECT created_at FROM users WHERE id = ?), CURRENT_TIMESTAMP))
+        `, userID, username, firstName, lastName, userID)
+        return err
+}</span>
+
+// GetUser retrieves a user by ID
+func (d *Database) GetUser(userID int64) (*User, error) <span class="cov8" title="1">{
+        var user User
+        err := d.db.QueryRow(`
+                SELECT id, username, first_name, last_name, created_at
+                FROM users WHERE id = ?
+        `, userID).Scan(&amp;user.ID, &amp;user.Username, &amp;user.FirstName, &amp;user.LastName, &amp;user.CreatedAt)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return &amp;user, nil</span>
+}
+
+// AddTopic adds a new topic
+func (d *Database) AddTopic(chatID int64, name string, messageThreadId int64, createdBy int64) error <span class="cov8" title="1">{
+        _, err := d.db.Exec(`
+                INSERT OR IGNORE INTO topics (chat_id, name, message_thread_id, created_by)
+                VALUES (?, ?, ?, ?)
+        `, chatID, name, messageThreadId, createdBy)
+        return err
+}</span>
+
+// GetTopicsByChat retrieves all topics for a chat
+func (d *Database) GetTopicsByChat(chatID int64) ([]Topic, error) <span class="cov8" title="1">{
+        rows, err := d.db.Query(`
+                SELECT id, chat_id, name, message_thread_id, created_by, created_at
+                FROM topics WHERE chat_id = ?
+                ORDER BY name
+        `, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">defer rows.Close()
+
+        var topics []Topic
+        for rows.Next() </span><span class="cov8" title="1">{
+                var topic Topic
+                err := rows.Scan(&amp;topic.ID, &amp;topic.ChatID, &amp;topic.Name, &amp;topic.MessageThreadId, &amp;topic.CreatedBy, &amp;topic.CreatedAt)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">topics = append(topics, topic)</span>
+        }
+        <span class="cov8" title="1">return topics, nil</span>
+}
+
+// TopicExists checks if a topic exists in a chat
+func (d *Database) TopicExists(chatID int64, name string) (bool, error) <span class="cov8" title="1">{
+        var exists int
+        err := d.db.QueryRow(`
+                SELECT 1 FROM topics WHERE chat_id = ? AND name = ?
+        `, chatID, name).Scan(&amp;exists)
+        if err == sql.ErrNoRows </span><span class="cov8" title="1">{
+                return false, nil
+        }</span>
+        <span class="cov8" title="1">if err != nil </span><span class="cov0" title="0">{
+                return false, err
+        }</span>
+        <span class="cov8" title="1">return true, nil</span>
+}
+
+// Close closes the database connection
+func (d *Database) Close() error <span class="cov8" title="1">{
+        return d.db.Close()
+}</span>
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package handlers
+
+import (
+        "context"
+        "strconv"
+        "strings"
+
+        "save-message/internal/config"
+        "save-message/internal/interfaces"
+        "save-message/internal/logutils"
+
+        "github.com/PaulSonOfLars/gotgbot/v2"
+)
+
+// AIHandlers handles AI-related operations and suggestions
+type AIHandlers struct {
+        messageService       interfaces.MessageServiceInterface
+        topicService         interfaces.TopicServiceInterface
+        aiService            interfaces.AIServiceInterface
+        messageStore         map[string]*gotgbot.Message
+        keyboardMessageStore map[string]int
+        keyboardBuilder      *KeyboardBuilder
+
+        // Mockable funcs for testing
+        HandleGeneralTopicMessageFunc       func(update *gotgbot.Update) error
+        HandleRetryCallbackFunc             func(update *gotgbot.Update, originalMsg *gotgbot.Message) error
+        HandleBackToSuggestionsCallbackFunc func(update *gotgbot.Update, originalMsg *gotgbot.Message) error
+}
+
+// NewAIHandlers creates a new AI handlers instance
+func NewAIHandlers(messageService interfaces.MessageServiceInterface, topicService interfaces.TopicServiceInterface, aiService interfaces.AIServiceInterface) *AIHandlers <span class="cov0" title="0">{
+        return &amp;AIHandlers{
+                messageService:       messageService,
+                topicService:         topicService,
+                aiService:            aiService,
+                messageStore:         make(map[string]*gotgbot.Message),
+                keyboardMessageStore: make(map[string]int),
+                keyboardBuilder:      NewKeyboardBuilder(),
+        }
+}</span>
+
+// HandleGeneralTopicMessage handles messages in General topic with AI suggestions
+func (ah *AIHandlers) HandleGeneralTopicMessage(update *gotgbot.Update) error <span class="cov0" title="0">{
+        if ah.HandleGeneralTopicMessageFunc != nil </span><span class="cov0" title="0">{
+                return ah.HandleGeneralTopicMessageFunc(update)
+        }</span>
+        <span class="cov0" title="0">logutils.Info("HandleGeneralTopicMessage", "chatID", update.Message.Chat.Id, "messageID", update.Message.MessageId)
+
+        // Send waiting message
+        waitingMsg, err := ah.messageService.SendMessage(update.Message.Chat.Id, config.AIProcessingMessage, &amp;gotgbot.SendMessageOpts{
+                MessageThreadId: update.Message.MessageThreadId,
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleGeneralTopicMessage: SendMessageError", err, "chatID", update.Message.Chat.Id)
+                return err
+        }</span>
+
+        // Store the waiting message ID
+        <span class="cov0" title="0">callbackData := "suggestions_" + strconv.FormatInt(update.Message.MessageId, 10)
+        ah.keyboardMessageStore[callbackData] = int(waitingMsg.MessageId)
+
+        // Process AI suggestions in a goroutine
+        go func(msg *gotgbot.Message) </span><span class="cov0" title="0">{
+                // Get existing topics
+                topics, err := ah.topicService.GetForumTopics(msg.Chat.Id)
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleGeneralTopicMessage: GetForumTopicsError", err, "chatID", msg.Chat.Id)
+                        ah.handleAIError(msg, waitingMsg)
+                        return
+                }</span>
+
+                // Get AI suggestions
+                <span class="cov0" title="0">ctx := context.Background()
+                suggestions, err := ah.aiService.SuggestFolders(ctx, msg.Text, ah.getTopicNames(topics))
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleGeneralTopicMessage: SuggestFoldersError", err, "chatID", msg.Chat.Id)
+                        ah.handleAIError(msg, waitingMsg)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">logutils.Info("HandleGeneralTopicMessage: AI suggestions", "suggestions", suggestions)
+
+                // Build keyboard
+                keyboard, err := ah.keyboardBuilder.BuildSuggestionKeyboard(msg, suggestions, topics)
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleGeneralTopicMessage: BuildSuggestionKeyboardError", err, "chatID", msg.Chat.Id)
+                        ah.handleAIError(msg, waitingMsg)
+                        return
+                }</span>
+
+                // Store message references for all suggestion buttons
+                <span class="cov0" title="0">ah.storeMessageReferences(msg, suggestions, topics)
+
+                // Update the waiting message with suggestions
+                logutils.Info("HandleGeneralTopicMessage: Updating waiting message", "chatID", msg.Chat.Id, "messageID", waitingMsg.MessageId, "text", config.ChooseFolderMessage)
+                _, err = ah.messageService.EditMessageText(msg.Chat.Id, int64(waitingMsg.MessageId), config.ChooseFolderMessage, &amp;gotgbot.EditMessageTextOpts{
+                        ReplyMarkup: *keyboard,
+                })
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleGeneralTopicMessage: EditMessageTextError", err, "chatID", msg.Chat.Id, "messageID", waitingMsg.MessageId)
+                        // If update fails, try to find the message by searching through all stored keyboard messages
+                        ah.tryUpdateExistingMessage(msg, keyboard)
+                }</span> else<span class="cov0" title="0"> {
+                        logutils.Success("HandleGeneralTopicMessage: Successfully updated waiting message with keyboard", "chatID", msg.Chat.Id)
+                        // Store keyboard message ID for all suggestion buttons
+                        ah.storeKeyboardMessageIDs(msg, suggestions, topics, int(waitingMsg.MessageId))
+                }</span>
+        }(update.Message)
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// HandleRetryCallback handles retry button clicks
+func (ah *AIHandlers) HandleRetryCallback(update *gotgbot.Update, originalMsg *gotgbot.Message) error <span class="cov0" title="0">{
+        if ah.HandleRetryCallbackFunc != nil </span><span class="cov0" title="0">{
+                return ah.HandleRetryCallbackFunc(update, originalMsg)
+        }</span>
+        <span class="cov0" title="0">logutils.Info("HandleRetryCallback", "chatID", originalMsg.Chat.Id)
+
+        _, err := ah.messageService.SendMessage(originalMsg.Chat.Id, config.SuccessMessageRetry, &amp;gotgbot.SendMessageOpts{
+                MessageThreadId: originalMsg.MessageThreadId,
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleRetryCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
+                return err
+        }</span>
+
+        <span class="cov0" title="0">logutils.Success("HandleRetryCallback", "chatID", originalMsg.Chat.Id)
+        return nil</span>
+}
+
+// HandleBackToSuggestionsCallback handles back to suggestions button
+func (ah *AIHandlers) HandleBackToSuggestionsCallback(update *gotgbot.Update, originalMsg *gotgbot.Message) error <span class="cov0" title="0">{
+        if ah.HandleBackToSuggestionsCallbackFunc != nil </span><span class="cov0" title="0">{
+                return ah.HandleBackToSuggestionsCallbackFunc(update, originalMsg)
+        }</span>
+        <span class="cov0" title="0">logutils.Info("HandleBackToSuggestionsCallback", "chatID", originalMsg.Chat.Id)
+
+        // Get existing topics
+        topics, err := ah.topicService.GetForumTopics(originalMsg.Chat.Id)
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleBackToSuggestionsCallback: GetForumTopicsError", err, "chatID", originalMsg.Chat.Id)
+                _, sendErr := ah.messageService.SendMessage(originalMsg.Chat.Id, config.ErrorMessageFailed, &amp;gotgbot.SendMessageOpts{
+                        MessageThreadId: originalMsg.MessageThreadId,
+                })
+                if sendErr != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleBackToSuggestionsCallback: SendMessageError", sendErr, "chatID", originalMsg.Chat.Id)
+                }</span>
+                <span class="cov0" title="0">return err</span>
+        }
+
+        // Get AI suggestions again
+        <span class="cov0" title="0">ctx := context.Background()
+        suggestions, err := ah.aiService.SuggestFolders(ctx, originalMsg.Text, ah.getTopicNames(topics))
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleBackToSuggestionsCallback: SuggestFoldersError", err, "chatID", originalMsg.Chat.Id)
+                ah.handleAIError(originalMsg, nil)
+                return err
+        }</span>
+
+        // Build keyboard
+        <span class="cov0" title="0">keyboard, err := ah.keyboardBuilder.BuildSuggestionKeyboard(originalMsg, suggestions, topics)
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleBackToSuggestionsCallback: BuildSuggestionKeyboardError", err, "chatID", originalMsg.Chat.Id)
+                return err
+        }</span>
+
+        // Store message references for all suggestion buttons
+        <span class="cov0" title="0">ah.storeMessageReferences(originalMsg, suggestions, topics)
+
+        // Try to update existing message or send new one
+        callbackData := "suggestions_" + strconv.FormatInt(originalMsg.MessageId, 10)
+        if keyboardMsgId, exists := ah.keyboardMessageStore[callbackData]; exists </span><span class="cov0" title="0">{
+                _, err = ah.messageService.EditMessageText(originalMsg.Chat.Id, int64(keyboardMsgId), config.ChooseFolderMessage, &amp;gotgbot.EditMessageTextOpts{
+                        ReplyMarkup: *keyboard,
+                })
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleBackToSuggestionsCallback: EditMessageTextError", err, "chatID", originalMsg.Chat.Id, "messageID", keyboardMsgId)
+                        // If update fails, send new message
+                        newMsg, err := ah.messageService.SendMessage(originalMsg.Chat.Id, config.ChooseFolderMessage, &amp;gotgbot.SendMessageOpts{
+                                MessageThreadId: originalMsg.MessageThreadId,
+                                ReplyMarkup:     *keyboard,
+                        })
+                        if err != nil </span><span class="cov0" title="0">{
+                                logutils.Error("HandleBackToSuggestionsCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
+                        }</span> else<span class="cov0" title="0"> {
+                                ah.storeKeyboardMessageIDs(originalMsg, suggestions, topics, int(newMsg.MessageId))
+                        }</span>
+                } else<span class="cov0" title="0"> {
+                        ah.storeKeyboardMessageIDs(originalMsg, suggestions, topics, keyboardMsgId)
+                }</span>
+        } else<span class="cov0" title="0"> {
+                // Send new message with suggestions
+                newMsg, err := ah.messageService.SendMessage(originalMsg.Chat.Id, config.ChooseFolderMessage, &amp;gotgbot.SendMessageOpts{
+                        MessageThreadId: originalMsg.MessageThreadId,
+                        ReplyMarkup:     *keyboard,
+                })
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleBackToSuggestionsCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
+                }</span> else<span class="cov0" title="0"> {
+                        ah.storeKeyboardMessageIDs(originalMsg, suggestions, topics, int(newMsg.MessageId))
+                }</span>
+        }
+
+        <span class="cov0" title="0">logutils.Success("HandleBackToSuggestionsCallback", "chatID", originalMsg.Chat.Id)
+        return nil</span>
+}
+
+// Helper methods
+func (ah *AIHandlers) getTopicNames(topics []interfaces.ForumTopic) []string <span class="cov0" title="0">{
+        var names []string
+        for _, topic := range topics </span><span class="cov0" title="0">{
+                names = append(names, topic.Name)
+        }</span>
+        <span class="cov0" title="0">return names</span>
+}
+
+func (ah *AIHandlers) handleAIError(msg *gotgbot.Message, waitingMsg *gotgbot.Message) <span class="cov0" title="0">{
+        retryKeyboard := &amp;gotgbot.InlineKeyboardMarkup{
+                InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
+                        {{Text: config.ButtonTextTryAgain, CallbackData: config.CallbackPrefixRetry + strconv.FormatInt(msg.MessageId, 10)}},
+                },
+        }
+
+        if waitingMsg != nil </span><span class="cov0" title="0">{
+                _, err := ah.messageService.EditMessageText(msg.Chat.Id, waitingMsg.MessageId, config.AIFailedMessage, &amp;gotgbot.EditMessageTextOpts{
+                        ReplyMarkup: *retryKeyboard,
+                })
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("handleAIError: EditMessageTextError", err, "chatID", msg.Chat.Id, "messageID", waitingMsg.MessageId)
+                }</span>
+        }
+}
+
+func (ah *AIHandlers) storeMessageReferences(msg *gotgbot.Message, suggestions []string, topics []interfaces.ForumTopic) <span class="cov0" title="0">{
+        // Store for existing topics
+        for _, folder := range suggestions </span><span class="cov0" title="0">{
+                for _, topic := range topics </span><span class="cov0" title="0">{
+                        if strings.EqualFold(topic.Name, folder) </span><span class="cov0" title="0">{
+                                callbackData := topic.Name + "_" + strconv.FormatInt(msg.MessageId, 10)
+                                ah.messageStore[callbackData] = msg
+                                break</span>
+                        }
+                }
+        }
+
+        // Store for new topics
+        <span class="cov0" title="0">for _, folder := range suggestions </span><span class="cov0" title="0">{
+                cleanFolder := strings.TrimSpace(folder)
+                if len(cleanFolder) &gt; 0 &amp;&amp; len(cleanFolder) &lt;= 50 &amp;&amp; !strings.Contains(cleanFolder, "\n") </span><span class="cov0" title="0">{
+                        callbackData := cleanFolder + "_" + strconv.FormatInt(msg.MessageId, 10)
+                        ah.messageStore[callbackData] = msg
+                }</span>
+        }
+
+        // Store for other buttons
+        <span class="cov0" title="0">createCallbackData := config.CallbackPrefixCreateNewFolder + strconv.FormatInt(msg.MessageId, 10)
+        ah.messageStore[createCallbackData] = msg
+
+        if len(topics) &gt; 0 </span><span class="cov0" title="0">{
+                showAllCallbackData := config.CallbackPrefixShowAllTopics + strconv.FormatInt(msg.MessageId, 10)
+                ah.messageStore[showAllCallbackData] = msg
+        }</span>
+
+        <span class="cov0" title="0">retryCallbackData := config.CallbackPrefixRetry + strconv.FormatInt(msg.MessageId, 10)
+        ah.messageStore[retryCallbackData] = msg</span>
+}
+
+func (ah *AIHandlers) storeKeyboardMessageIDs(msg *gotgbot.Message, suggestions []string, topics []interfaces.ForumTopic, keyboardMsgID int) <span class="cov0" title="0">{
+        // Store for existing topics
+        for _, folder := range suggestions </span><span class="cov0" title="0">{
+                for _, topic := range topics </span><span class="cov0" title="0">{
+                        if strings.EqualFold(topic.Name, folder) </span><span class="cov0" title="0">{
+                                callbackData := topic.Name + "_" + strconv.FormatInt(msg.MessageId, 10)
+                                ah.keyboardMessageStore[callbackData] = keyboardMsgID
+                                break</span>
+                        }
+                }
+        }
+
+        // Store for new topics
+        <span class="cov0" title="0">for _, folder := range suggestions </span><span class="cov0" title="0">{
+                cleanFolder := strings.TrimSpace(folder)
+                if len(cleanFolder) &gt; 0 &amp;&amp; len(cleanFolder) &lt;= 50 &amp;&amp; !strings.Contains(cleanFolder, "\n") </span><span class="cov0" title="0">{
+                        callbackData := cleanFolder + "_" + strconv.FormatInt(msg.MessageId, 10)
+                        ah.keyboardMessageStore[callbackData] = keyboardMsgID
+                }</span>
+        }
+
+        // Store for other buttons
+        <span class="cov0" title="0">createCallbackData := config.CallbackPrefixCreateNewFolder + strconv.FormatInt(msg.MessageId, 10)
+        ah.keyboardMessageStore[createCallbackData] = keyboardMsgID
+
+        if len(topics) &gt; 0 </span><span class="cov0" title="0">{
+                showAllCallbackData := config.CallbackPrefixShowAllTopics + strconv.FormatInt(msg.MessageId, 10)
+                ah.keyboardMessageStore[showAllCallbackData] = keyboardMsgID
+        }</span>
+
+        <span class="cov0" title="0">retryCallbackData := config.CallbackPrefixRetry + strconv.FormatInt(msg.MessageId, 10)
+        ah.keyboardMessageStore[retryCallbackData] = keyboardMsgID</span>
+}
+
+func (ah *AIHandlers) tryUpdateExistingMessage(msg *gotgbot.Message, keyboard *gotgbot.InlineKeyboardMarkup) <span class="cov0" title="0">{
+        for storedCallback, storedMsgID := range ah.keyboardMessageStore </span><span class="cov0" title="0">{
+                if strings.Contains(storedCallback, strconv.FormatInt(msg.MessageId, 10)) </span><span class="cov0" title="0">{
+                        _, updateErr := ah.messageService.EditMessageText(msg.Chat.Id, int64(storedMsgID), config.ChooseFolderMessage, &amp;gotgbot.EditMessageTextOpts{
+                                ReplyMarkup: *keyboard,
+                        })
+                        if updateErr == nil </span><span class="cov0" title="0">{
+                                break</span>
+                        }
+                }
+        }
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package handlers
+
+import (
+        "strings"
+
+        "save-message/internal/config"
+        "save-message/internal/interfaces"
+        "save-message/internal/logutils"
+
+        "github.com/PaulSonOfLars/gotgbot/v2"
+)
+
+// CallbackHandlers coordinates all callback-related interactions
+type CallbackHandlers struct {
+        TopicHandlers   interfaces.TopicHandlersInterface
+        WarningHandlers interfaces.WarningHandlersInterface
+        AIHandlers      interfaces.AIHandlersInterface
+        MessageService  interfaces.MessageServiceInterface
+}
+
+// TopicCreationContext stores context for topic creation
+type TopicCreationContext struct {
+        ChatId        int64
+        ThreadId      int64
+        OriginalMsgId int64
+}
+
+// NewCallbackHandlers creates a new callback handlers instance
+func NewCallbackHandlers(
+        messageService interfaces.MessageServiceInterface,
+        topicHandlers interfaces.TopicHandlersInterface,
+        aiHandlers interfaces.AIHandlersInterface,
+        warningHandlers interfaces.WarningHandlersInterface,
+) *CallbackHandlers <span class="cov8" title="1">{
+        return &amp;CallbackHandlers{
+                TopicHandlers:   topicHandlers,
+                WarningHandlers: warningHandlers,
+                AIHandlers:      aiHandlers,
+                MessageService:  messageService,
+        }
+}</span>
+
+// HandleCallbackQuery routes callback queries to appropriate handlers
+func (ch *CallbackHandlers) HandleCallbackQuery(update *gotgbot.Update) error <span class="cov0" title="0">{
+        callbackData := update.CallbackQuery.Data
+        chatID := update.CallbackQuery.Message.Chat.Id
+        logutils.Info("HandleCallbackQuery", "chatID", chatID, "callbackData", callbackData)
+
+        // Answer the callback query to remove the loading state
+        err := ch.MessageService.AnswerCallbackQuery(update.CallbackQuery.Id, &amp;gotgbot.AnswerCallbackQueryOpts{
+                Text: "Processing...",
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleCallbackQuery: Error answering callback query", err, "chatID", chatID, "callbackData", callbackData)
+        }</span> else<span class="cov0" title="0"> {
+                logutils.Success("HandleCallbackQuery: Callback query answered", "chatID", chatID, "callbackData", callbackData)
+        }</span>
+
+        // Special handling for warning callbacks
+        <span class="cov0" title="0">if ch.WarningHandlers.IsWarningCallback(callbackData) </span><span class="cov0" title="0">{
+                logutils.Info("HandleCallbackQuery: Handling warning callback", "chatID", chatID, "callbackData", callbackData)
+                err = ch.WarningHandlers.HandleWarningOkCallback(update)
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleCallbackQuery: Error handling warning callback", err, "chatID", chatID, "callbackData", callbackData)
+                }</span> else<span class="cov0" title="0"> {
+                        logutils.Success("HandleCallbackQuery: Warning callback handled", "chatID", chatID, "callbackData", callbackData)
+                }</span>
+                <span class="cov0" title="0">return err</span>
+        }
+
+        // Get original message from topic handlers
+        <span class="cov0" title="0">originalMsg := ch.TopicHandlers.GetMessageByCallbackData(callbackData)
+        if originalMsg == nil </span><span class="cov0" title="0">{
+                logutils.Warn("HandleCallbackQuery: Original message not found", "chatID", chatID, "callbackData", callbackData)
+                _, err := ch.MessageService.SendMessage(update.CallbackQuery.From.Id, config.ErrorMessageNotFound, nil)
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleCallbackQuery: Error sending error message", err, "chatID", chatID, "callbackData", callbackData)
+                }</span> else<span class="cov0" title="0"> {
+                        logutils.Success("HandleCallbackQuery: Error message sent", "chatID", chatID, "callbackData", callbackData)
+                }</span>
+                <span class="cov0" title="0">return nil</span>
+        }
+
+        // Route to appropriate handler based on callback data
+        <span class="cov0" title="0">switch </span>{
+        case strings.HasPrefix(callbackData, config.CallbackPrefixCreateNewFolder):<span class="cov0" title="0">
+                logutils.Info("HandleCallbackQuery: Routing to NewTopicCreationRequest", "chatID", chatID, "callbackData", callbackData)
+                err = ch.TopicHandlers.HandleNewTopicCreationRequest(update, originalMsg)</span>
+        case strings.HasPrefix(callbackData, config.CallbackPrefixRetry):<span class="cov0" title="0">
+                logutils.Info("HandleCallbackQuery: Routing to RetryCallback", "chatID", chatID, "callbackData", callbackData)
+                err = ch.AIHandlers.HandleRetryCallback(update, originalMsg)</span>
+        case strings.HasPrefix(callbackData, config.CallbackPrefixShowAllTopics):<span class="cov0" title="0">
+                logutils.Info("HandleCallbackQuery: Routing to ShowAllTopicsCallback", "chatID", chatID, "callbackData", callbackData)
+                err = ch.TopicHandlers.HandleShowAllTopicsCallback(update, originalMsg)</span>
+        case callbackData == config.CallbackDataCreateTopicMenu:<span class="cov0" title="0">
+                logutils.Info("HandleCallbackQuery: Routing to HandleCreateTopicMenuCallback", "chatID", chatID, "callbackData", callbackData)
+                err = ch.TopicHandlers.HandleCreateTopicMenuCallback(update, originalMsg)</span>
+        case callbackData == config.CallbackDataShowAllTopicsMenu:<span class="cov0" title="0">
+                logutils.Info("HandleCallbackQuery: Routing to HandleShowAllTopicsMenuCallback", "chatID", chatID, "callbackData", callbackData)
+                err = ch.TopicHandlers.HandleShowAllTopicsMenuCallback(update, originalMsg)</span>
+        case strings.HasPrefix(callbackData, config.CallbackPrefixBackToSuggestions):<span class="cov0" title="0">
+                logutils.Info("HandleCallbackQuery: Routing to HandleBackToSuggestionsCallback", "chatID", chatID, "callbackData", callbackData)
+                err = ch.AIHandlers.HandleBackToSuggestionsCallback(update, originalMsg)</span>
+        default:<span class="cov0" title="0">
+                logutils.Warn("HandleCallbackQuery: Routing to HandleTopicSelectionCallback", "chatID", chatID, "callbackData", callbackData)
+                err = ch.TopicHandlers.HandleTopicSelectionCallback(update, originalMsg, callbackData)</span>
+        }
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleCallbackQuery: HandlerError", err, "chatID", chatID, "callbackData", callbackData)
+        }</span> else<span class="cov0" title="0"> {
+                logutils.Success("HandleCallbackQuery", "chatID", chatID, "callbackData", callbackData)
+        }</span>
+
+        <span class="cov0" title="0">return err</span>
+}
+
+// IsRecentlyMovedMessage checks if message was recently moved
+func (ch *CallbackHandlers) IsRecentlyMovedMessage(messageID int64) bool <span class="cov8" title="1">{
+        return ch.TopicHandlers.IsRecentlyMovedMessage(messageID)
+}</span>
+
+// MarkMessageAsMoved marks message as moved
+func (ch *CallbackHandlers) MarkMessageAsMoved(messageID int64) <span class="cov8" title="1">{
+        ch.TopicHandlers.MarkMessageAsMoved(messageID)
+}</span>
+
+// CleanupMovedMessage cleans up moved message tracking
+func (ch *CallbackHandlers) CleanupMovedMessage(messageID int64) <span class="cov8" title="1">{
+        ch.TopicHandlers.CleanupMovedMessage(messageID)
+}</span>
+
+// IsWaitingForTopicName checks if user is waiting for topic name
+func (ch *CallbackHandlers) IsWaitingForTopicName(userID int64) bool <span class="cov8" title="1">{
+        return ch.TopicHandlers.IsWaitingForTopicName(userID)
+}</span>
+
+// HandleTopicNameEntry delegates to topic handlers
+func (ch *CallbackHandlers) HandleTopicNameEntry(update *gotgbot.Update) error <span class="cov0" title="0">{
+        return ch.TopicHandlers.HandleTopicNameEntry(update)
+}</span>
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package handlers
+
+import (
+        "strings"
+
+        "save-message/internal/config"
+        "save-message/internal/interfaces"
+        "save-message/internal/logutils"
+
+        "github.com/PaulSonOfLars/gotgbot/v2"
+)
+
+// CommandHandlers handles all command-related interactions
+type CommandHandlers struct {
+        MessageService interfaces.MessageServiceInterface
+        TopicService   interfaces.TopicServiceInterface
+
+        // Mockable funcs for testing
+        HandleStartCommandFunc    func(update *gotgbot.Update) error
+        HandleHelpCommandFunc     func(update *gotgbot.Update) error
+        HandleTopicsCommandFunc   func(update *gotgbot.Update) error
+        HandleAddTopicCommandFunc func(update *gotgbot.Update) error
+        HandleBotMentionFunc      func(update *gotgbot.Update) error
+}
+
+// NewCommandHandlers creates a new command handlers instance
+func NewCommandHandlers(messageService interfaces.MessageServiceInterface, topicService interfaces.TopicServiceInterface) *CommandHandlers <span class="cov8" title="1">{
+        return &amp;CommandHandlers{
+                MessageService: messageService,
+                TopicService:   topicService,
+        }
+}</span>
+
+// HandleStartCommand handles the /start command
+func (ch *CommandHandlers) HandleStartCommand(update *gotgbot.Update) error <span class="cov8" title="1">{
+        logutils.Info("HandleStartCommand", "chatID", update.Message.Chat.Id)
+
+        _, err := ch.MessageService.SendMessage(update.Message.Chat.Id, config.WelcomeMessage, nil)
+        if err != nil </span><span class="cov8" title="1">{
+                logutils.Error("HandleStartCommand: SendMessageError", err, "chatID", update.Message.Chat.Id)
+                return err
+        }</span>
+        <span class="cov8" title="1">logutils.Success("HandleStartCommand", "chatID", update.Message.Chat.Id)
+        return nil</span>
+}
+
+// HandleHelpCommand handles the /help command
+func (ch *CommandHandlers) HandleHelpCommand(update *gotgbot.Update) error <span class="cov0" title="0">{
+        logutils.Info("HandleHelpCommand", "chatID", update.Message.Chat.Id)
+
+        _, err := ch.MessageService.SendMessage(update.Message.Chat.Id, config.HelpMessage, &amp;gotgbot.SendMessageOpts{
+                ParseMode: "Markdown",
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleHelpCommand: SendMessageError", err, "chatID", update.Message.Chat.Id)
+                return err
+        }</span>
+        <span class="cov0" title="0">logutils.Success("HandleHelpCommand", "chatID", update.Message.Chat.Id)
+        return nil</span>
+}
+
+// HandleTopicsCommand handles the /topics command
+func (ch *CommandHandlers) HandleTopicsCommand(update *gotgbot.Update) error <span class="cov8" title="1">{
+        logutils.Info("HandleTopicsCommand", "chatID", update.Message.Chat.Id)
+
+        topics, err := ch.TopicService.GetForumTopics(update.Message.Chat.Id)
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleTopicsCommand: GetForumTopicsError", err, "chatID", update.Message.Chat.Id)
+                _, sendErr := ch.MessageService.SendMessage(update.Message.Chat.Id, config.ErrorMessageFailed, &amp;gotgbot.SendMessageOpts{})
+                if sendErr != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleTopicsCommand: SendErrorMessageError", sendErr, "chatID", update.Message.Chat.Id)
+                }</span>
+                <span class="cov0" title="0">return err</span>
+        }
+
+        <span class="cov8" title="1">if len(topics) == 0 </span><span class="cov8" title="1">{
+                _, err = ch.MessageService.SendMessage(update.Message.Chat.Id, config.ErrorMessageNoTopics, &amp;gotgbot.SendMessageOpts{})
+                if err != nil </span><span class="cov8" title="1">{
+                        logutils.Error("HandleTopicsCommand: SendErrorMessageNoTopicsError", err, "chatID", update.Message.Chat.Id)
+                        return err
+                }</span>
+        } else<span class="cov0" title="0"> {
+                topicList := config.TopicsListHeader
+                for _, topic := range topics </span><span class="cov0" title="0">{
+                        topicList += "• " + topic.Name + "\n"
+                }</span>
+                <span class="cov0" title="0">_, err = ch.MessageService.SendMessage(update.Message.Chat.Id, topicList, &amp;gotgbot.SendMessageOpts{
+                        ParseMode: "Markdown",
+                })
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleTopicsCommand: SendTopicsListError", err, "chatID", update.Message.Chat.Id)
+                        return err
+                }</span>
+        }
+
+        <span class="cov8" title="1">logutils.Success("HandleTopicsCommand", "chatID", update.Message.Chat.Id)
+        return nil</span>
+}
+
+// HandleAddTopicCommand handles the /addtopic command
+func (ch *CommandHandlers) HandleAddTopicCommand(update *gotgbot.Update) error <span class="cov0" title="0">{
+        logutils.Info("HandleAddTopicCommand", "chatID", update.Message.Chat.Id)
+
+        keyboard := &amp;gotgbot.InlineKeyboardMarkup{
+                InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
+                        {{Text: config.ButtonTextCreateNewTopic, CallbackData: config.CallbackDataCreateTopicMenu}},
+                },
+        }
+
+        _, err := ch.MessageService.SendMessage(update.Message.Chat.Id, config.ChooseOptionMessage, &amp;gotgbot.SendMessageOpts{
+                ReplyMarkup: *keyboard,
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleAddTopicCommand: SendMessageError", err, "chatID", update.Message.Chat.Id)
+                return err
+        }</span>
+
+        <span class="cov0" title="0">logutils.Success("HandleAddTopicCommand", "chatID", update.Message.Chat.Id)
+        return nil</span>
+}
+
+// HandleBotMention handles when the bot is mentioned
+func (ch *CommandHandlers) HandleBotMention(update *gotgbot.Update) error <span class="cov0" title="0">{
+        logutils.Info("HandleBotMention", "chatID", update.Message.Chat.Id)
+
+        keyboard := &amp;gotgbot.InlineKeyboardMarkup{
+                InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
+                        {{Text: config.ButtonTextCreateNewTopic, CallbackData: config.CallbackDataCreateTopicMenu}},
+                        {{Text: config.ButtonTextShowAllTopics, CallbackData: config.CallbackDataShowAllTopicsMenu}},
+                },
+        }
+
+        _, err := ch.MessageService.SendMessage(update.Message.Chat.Id, config.BotMenuMessage, &amp;gotgbot.SendMessageOpts{
+                ParseMode:   "Markdown",
+                ReplyMarkup: *keyboard,
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleBotMention: SendMessageError", err, "chatID", update.Message.Chat.Id)
+                return err
+        }</span>
+
+        <span class="cov0" title="0">logutils.Success("HandleBotMention", "chatID", update.Message.Chat.Id)
+        return nil</span>
+}
+
+// IsBotMention checks if the message mentions the bot
+func (ch *CommandHandlers) IsBotMention(messageText string) bool <span class="cov0" title="0">{
+        lowerText := strings.ToLower(messageText)
+        return strings.Contains(lowerText, config.BotUsername1) || strings.Contains(lowerText, config.BotUsername2)
+}</span>
+
+func (ch *CommandHandlers) HandleNonGeneralTopicMessage(update *gotgbot.Update) error <span class="cov0" title="0">{
+        // Not implemented for command handlers
+        return nil
+}</span>
+
+func (ch *CommandHandlers) HandleGeneralTopicMessage(update *gotgbot.Update) error <span class="cov0" title="0">{
+        // Not implemented for command handlers
+        return nil
+}</span>
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package handlers
+
+import (
+        "strconv"
+        "strings"
+
+        "save-message/internal/config"
+        "save-message/internal/interfaces"
+
+        "github.com/PaulSonOfLars/gotgbot/v2"
+)
+
+// KeyboardBuilder handles building inline keyboards
+type KeyboardBuilder struct{}
+
+// NewKeyboardBuilder creates a new keyboard builder instance
+func NewKeyboardBuilder() *KeyboardBuilder <span class="cov8" title="1">{
+        return &amp;KeyboardBuilder{}
+}</span>
+
+// BuildSuggestionKeyboard builds keyboard for AI suggestions
+func (kb *KeyboardBuilder) BuildSuggestionKeyboard(msg *gotgbot.Message, suggestions []string, topics []interfaces.ForumTopic) (*gotgbot.InlineKeyboardMarkup, error) <span class="cov8" title="1">{
+        var rows [][]gotgbot.InlineKeyboardButton
+
+        // Separate existing and new topics
+        var existingTopics []string
+        var newTopics []string
+
+        for _, folder := range suggestions </span><span class="cov8" title="1">{
+                // Check if this is an existing topic (case-insensitive)
+                isExisting := false
+                var existingTopicName string
+                for _, topic := range topics </span><span class="cov8" title="1">{
+                        if strings.EqualFold(topic.Name, folder) </span><span class="cov0" title="0">{
+                                isExisting = true
+                                existingTopicName = topic.Name // Use the exact name from the topic
+                                break</span>
+                        }
+                }
+
+                // Skip General topic
+                <span class="cov8" title="1">if strings.EqualFold(folder, "General") </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">if isExisting </span><span class="cov0" title="0">{
+                        existingTopics = append(existingTopics, existingTopicName) // Use exact name
+                }</span> else<span class="cov8" title="1"> {
+                        newTopics = append(newTopics, folder)
+                }</span>
+        }
+
+        // Add existing topics with folder icon
+        <span class="cov8" title="1">for _, folder := range existingTopics </span><span class="cov0" title="0">{
+                callbackData := folder + "_" + strconv.FormatInt(msg.MessageId, 10)
+                rows = append(rows, []gotgbot.InlineKeyboardButton{{Text: config.IconFolder + " " + folder, CallbackData: callbackData}})
+        }</span>
+
+        // Add new topics with plus icon
+        <span class="cov8" title="1">for _, folder := range newTopics </span><span class="cov8" title="1">{
+                cleanFolder := strings.TrimSpace(folder)
+                // Skip suggestions that are too long or contain newlines
+                if len(cleanFolder) == 0 || len(cleanFolder) &gt; 50 || strings.Contains(cleanFolder, "\n") </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">callbackData := cleanFolder + "_" + strconv.FormatInt(msg.MessageId, 10)
+                rows = append(rows, []gotgbot.InlineKeyboardButton{{Text: config.IconNewFolder + " " + cleanFolder, CallbackData: callbackData}})</span>
+        }
+
+        // Add create new folder option
+        <span class="cov8" title="1">createCallbackData := config.CallbackPrefixCreateNewFolder + strconv.FormatInt(msg.MessageId, 10)
+        createBtn := gotgbot.InlineKeyboardButton{Text: config.ButtonTextCreateNewTopic, CallbackData: createCallbackData}
+        rows = append(rows, []gotgbot.InlineKeyboardButton{createBtn})
+
+        // Add show all topics button if there are existing topics
+        showAllCallbackData := ""
+        if len(topics) &gt; 0 </span><span class="cov8" title="1">{
+                showAllCallbackData = config.CallbackPrefixShowAllTopics + strconv.FormatInt(msg.MessageId, 10)
+                showAllBtn := gotgbot.InlineKeyboardButton{Text: config.ButtonTextShowAllTopics, CallbackData: showAllCallbackData}
+                rows = append(rows, []gotgbot.InlineKeyboardButton{showAllBtn})
+        }</span>
+
+        // Add retry button
+        <span class="cov8" title="1">retryCallbackData := config.CallbackPrefixRetry + strconv.FormatInt(msg.MessageId, 10)
+        retryBtn := gotgbot.InlineKeyboardButton{Text: config.ButtonTextTryAgain, CallbackData: retryCallbackData}
+        rows = append(rows, []gotgbot.InlineKeyboardButton{retryBtn})
+
+        return &amp;gotgbot.InlineKeyboardMarkup{InlineKeyboard: rows}, nil</span>
+}
+
+// BuildAllTopicsKeyboard builds keyboard for showing all topics
+func (kb *KeyboardBuilder) BuildAllTopicsKeyboard(originalMsg *gotgbot.Message, topics []interfaces.ForumTopic) (*gotgbot.InlineKeyboardMarkup, error) <span class="cov8" title="1">{
+        var rows [][]gotgbot.InlineKeyboardButton
+
+        // Add all existing topics as buttons
+        for _, topic := range topics </span><span class="cov8" title="1">{
+                callbackData := topic.Name + "_" + strconv.FormatInt(originalMsg.MessageId, 10)
+                rows = append(rows, []gotgbot.InlineKeyboardButton{{Text: config.IconFolder + " " + topic.Name, CallbackData: callbackData}})
+        }</span>
+
+        // Add back button
+        <span class="cov8" title="1">backCallbackData := config.CallbackPrefixBackToSuggestions + strconv.FormatInt(originalMsg.MessageId, 10)
+        backBtn := gotgbot.InlineKeyboardButton{Text: config.ButtonTextBackToSuggestions, CallbackData: backCallbackData}
+        rows = append(rows, []gotgbot.InlineKeyboardButton{backBtn})
+
+        return &amp;gotgbot.InlineKeyboardMarkup{InlineKeyboard: rows}, nil</span>
+}
+
+// BuildBotMenuKeyboard builds keyboard for bot menu
+func (kb *KeyboardBuilder) BuildBotMenuKeyboard() *gotgbot.InlineKeyboardMarkup <span class="cov8" title="1">{
+        return &amp;gotgbot.InlineKeyboardMarkup{
+                InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
+                        {{Text: config.ButtonTextCreateNewTopic, CallbackData: config.CallbackDataCreateTopicMenu}},
+                        {{Text: config.ButtonTextShowAllTopics, CallbackData: config.CallbackDataShowAllTopicsMenu}},
+                },
+        }
+}</span>
+
+// BuildAddTopicKeyboard builds keyboard for add topic command
+func (kb *KeyboardBuilder) BuildAddTopicKeyboard() *gotgbot.InlineKeyboardMarkup <span class="cov8" title="1">{
+        return &amp;gotgbot.InlineKeyboardMarkup{
+                InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
+                        {{Text: config.ButtonTextCreateNewTopic, CallbackData: config.CallbackDataCreateTopicMenu}},
+                },
+        }
+}</span>
+
+// BuildWarningKeyboard builds keyboard for warning messages
+func (kb *KeyboardBuilder) BuildWarningKeyboard(callbackData string) *gotgbot.InlineKeyboardMarkup <span class="cov8" title="1">{
+        return &amp;gotgbot.InlineKeyboardMarkup{
+                InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
+                        {{Text: config.ButtonTextOk, CallbackData: callbackData}},
+                },
+        }
+}</span>
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package handlers
+
+import (
+        "strings"
+
+        "save-message/internal/interfaces"
+        "save-message/internal/logutils"
+
+        "github.com/PaulSonOfLars/gotgbot/v2"
+)
+
+// MessageHandlers handles regular messages.
+type MessageHandlers struct {
+        CommandHandlers interfaces.MessageHandlersInterface
+        AIHandlers      interfaces.AIHandlersInterface
+        TopicHandlers   interfaces.TopicHandlersInterface
+        WarningHandlers interfaces.WarningHandlersInterface
+        MessageService  interfaces.MessageServiceInterface
+        BotUsername     string
+}
+
+// NewMessageHandlers creates a new instance of MessageHandlers.
+func NewMessageHandlers(
+        commandHandlers interfaces.MessageHandlersInterface,
+        aiHandlers interfaces.AIHandlersInterface,
+        topicHandlers interfaces.TopicHandlersInterface,
+        warningHandlers interfaces.WarningHandlersInterface,
+        messageService interfaces.MessageServiceInterface,
+        botUsername string,
+) *MessageHandlers <span class="cov8" title="1">{
+        return &amp;MessageHandlers{
+                CommandHandlers: commandHandlers,
+                AIHandlers:      aiHandlers,
+                TopicHandlers:   topicHandlers,
+                WarningHandlers: warningHandlers,
+                MessageService:  messageService,
+                BotUsername:     botUsername,
+        }
+}</span>
+
+// HandleMessage routes messages to the appropriate handler based on context.
+func (mh *MessageHandlers) HandleMessage(update *gotgbot.Update) error <span class="cov0" title="0">{
+        chatID := update.Message.Chat.Id
+        logutils.Info("HandleMessage", "chatID", chatID, "messageID", update.Message.MessageId)
+
+        var err error
+        switch </span>{
+        case mh.isWaitingForTopic(update):<span class="cov0" title="0">
+                logutils.Info("HandleMessage: Routing to TopicNameEntry", "chatID", chatID)
+                err = mh.TopicHandlers.HandleTopicNameEntry(update)</span>
+        case mh.isCommand(update):<span class="cov0" title="0">
+                logutils.Info("HandleMessage: Routing to Command", "chatID", chatID)
+                err = mh.handleCommand(update)</span>
+        case mh.IsBotMention(update):<span class="cov0" title="0">
+                logutils.Info("HandleMessage: Routing to BotMention", "chatID", chatID)
+                err = mh.CommandHandlers.HandleBotMention(update)</span>
+        case mh.isGeneralTopicMessage(update):<span class="cov0" title="0">
+                logutils.Info("HandleMessage: Routing to GeneralTopicMessage", "chatID", chatID)
+                err = mh.AIHandlers.HandleGeneralTopicMessage(update)</span>
+        default:<span class="cov0" title="0">
+                logutils.Warn("HandleMessage: Routing to NonGeneralTopicMessage", "chatID", chatID)
+                err = mh.WarningHandlers.HandleNonGeneralTopicMessage(update)</span>
+        }
+
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleMessage: HandlerError", err, "chatID", chatID)
+        }</span> else<span class="cov0" title="0"> {
+                logutils.Success("HandleMessage", "chatID", chatID)
+        }</span>
+        <span class="cov0" title="0">return err</span>
+}
+
+// HandleStartCommand delegates to command handlers
+func (mh *MessageHandlers) HandleStartCommand(update *gotgbot.Update) error <span class="cov8" title="1">{
+        return mh.CommandHandlers.HandleStartCommand(update)
+}</span>
+
+// HandleHelpCommand delegates to command handlers
+func (mh *MessageHandlers) HandleHelpCommand(update *gotgbot.Update) error <span class="cov8" title="1">{
+        return mh.CommandHandlers.HandleHelpCommand(update)
+}</span>
+
+// HandleTopicsCommand delegates to command handlers
+func (mh *MessageHandlers) HandleTopicsCommand(update *gotgbot.Update) error <span class="cov8" title="1">{
+        return mh.CommandHandlers.HandleTopicsCommand(update)
+}</span>
+
+// HandleAddTopicCommand delegates to command handlers
+func (mh *MessageHandlers) HandleAddTopicCommand(update *gotgbot.Update) error <span class="cov8" title="1">{
+        return mh.CommandHandlers.HandleAddTopicCommand(update)
+}</span>
+
+// HandleBotMention delegates to command handlers
+func (mh *MessageHandlers) HandleBotMention(update *gotgbot.Update) error <span class="cov8" title="1">{
+        return mh.CommandHandlers.HandleBotMention(update)
+}</span>
+
+// HandleNonGeneralTopicMessage delegates to warning handlers
+func (mh *MessageHandlers) HandleNonGeneralTopicMessage(update *gotgbot.Update) error <span class="cov8" title="1">{
+        return mh.WarningHandlers.HandleNonGeneralTopicMessage(update)
+}</span>
+
+// HandleGeneralTopicMessage delegates to AI handlers
+func (mh *MessageHandlers) HandleGeneralTopicMessage(update *gotgbot.Update) error <span class="cov8" title="1">{
+        return mh.AIHandlers.HandleGeneralTopicMessage(update)
+}</span>
+
+// IsBotMention checks if the bot is mentioned in the message.
+func (mh *MessageHandlers) IsBotMention(update *gotgbot.Update) bool <span class="cov8" title="1">{
+        if update.Message == nil || update.Message.Entities == nil </span><span class="cov8" title="1">{
+                return false
+        }</span>
+        <span class="cov8" title="1">for _, entity := range update.Message.Entities </span><span class="cov8" title="1">{
+                if entity.Type == "mention" </span><span class="cov8" title="1">{
+                        if strings.Contains(update.Message.Text, "@"+mh.BotUsername) </span><span class="cov8" title="1">{
+                                return true
+                        }</span>
+                }
+        }
+        <span class="cov8" title="1">return false</span>
+}
+
+// IsRecentlyMovedMessage checks if message was recently moved
+func (mh *MessageHandlers) IsRecentlyMovedMessage(messageID int64) bool <span class="cov0" title="0">{
+        return mh.TopicHandlers.IsRecentlyMovedMessage(messageID)
+}</span>
+
+// CleanupMovedMessage cleans up moved message tracking
+func (mh *MessageHandlers) CleanupMovedMessage(messageID int64) <span class="cov0" title="0">{
+        mh.TopicHandlers.CleanupMovedMessage(messageID)
+}</span>
+
+// IsWaitingForTopicName checks if user is waiting for topic name
+func (mh *MessageHandlers) IsWaitingForTopicName(userID int64) bool <span class="cov0" title="0">{
+        return mh.TopicHandlers.IsWaitingForTopicName(userID)
+}</span>
+
+// HandleTopicNameEntry delegates to topic handlers
+func (mh *MessageHandlers) HandleTopicNameEntry(update *gotgbot.Update) error <span class="cov8" title="1">{
+        return mh.TopicHandlers.HandleTopicNameEntry(update)
+}</span>
+
+func (mh *MessageHandlers) isWaitingForTopic(update *gotgbot.Update) bool <span class="cov0" title="0">{
+        return mh.TopicHandlers.IsWaitingForTopicName(update.Message.From.Id)
+}</span>
+
+func (mh *MessageHandlers) isCommand(update *gotgbot.Update) bool <span class="cov8" title="1">{
+        return update.Message.Text != "" &amp;&amp; update.Message.Text[0] == '/'
+}</span>
+
+func (mh *MessageHandlers) handleCommand(update *gotgbot.Update) error <span class="cov0" title="0">{
+        logutils.Info("handleCommand", "command", update.Message.Text)
+        switch update.Message.Text </span>{
+        case "/start":<span class="cov0" title="0">
+                return mh.CommandHandlers.HandleStartCommand(update)</span>
+        case "/help":<span class="cov0" title="0">
+                return mh.CommandHandlers.HandleHelpCommand(update)</span>
+        case "/topics":<span class="cov0" title="0">
+                return mh.CommandHandlers.HandleTopicsCommand(update)</span>
+        case "/addtopic":<span class="cov0" title="0">
+                return mh.CommandHandlers.HandleAddTopicCommand(update)</span>
+        default:<span class="cov0" title="0">
+                _, err := mh.MessageService.SendMessage(update.Message.Chat.Id, "Unknown command. Try /help", nil)
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("handleCommand: SendMessageError", err, "command", update.Message.Text)
+                }</span>
+                <span class="cov0" title="0">return err</span>
+        }
+}
+
+func (mh *MessageHandlers) isGeneralTopicMessage(update *gotgbot.Update) bool <span class="cov0" title="0">{
+        return update.Message.MessageThreadId == 0
+}</span>
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">package handlers
+
+import (
+        "strconv"
+        "strings"
+        "time"
+
+        "save-message/internal/config"
+        "save-message/internal/interfaces"
+        "save-message/internal/logutils"
+
+        "github.com/PaulSonOfLars/gotgbot/v2"
+)
+
+// TopicHandlers handles topic-related operations and callbacks
+type TopicHandlers struct {
+        messageService        interfaces.MessageServiceInterface
+        topicService          interfaces.TopicServiceInterface
+        messageStore          map[string]*gotgbot.Message
+        keyboardMessageStore  map[string]int
+        WaitingForTopicName   map[int64]TopicCreationContext
+        originalMessageStore  map[int64]*gotgbot.Message
+        recentlyMovedMessages map[int64]bool
+        keyboardBuilder       *KeyboardBuilder
+
+        // Mockable funcs for testing
+        HandleNewTopicCreationRequestFunc   func(update *gotgbot.Update, originalMsg *gotgbot.Message) error
+        HandleTopicSelectionCallbackFunc    func(update *gotgbot.Update, originalMsg *gotgbot.Message, callbackData string) error
+        HandleShowAllTopicsCallbackFunc     func(update *gotgbot.Update, originalMsg *gotgbot.Message) error
+        HandleCreateTopicMenuCallbackFunc   func(update *gotgbot.Update, originalMsg *gotgbot.Message) error
+        HandleShowAllTopicsMenuCallbackFunc func(update *gotgbot.Update, originalMsg *gotgbot.Message) error
+        HandleTopicNameEntryFunc            func(update *gotgbot.Update) error
+}
+
+// TopicCreationContext is already defined in callback_handlers.go
+
+// NewTopicHandlers creates a new topic handlers instance
+func NewTopicHandlers(messageService interfaces.MessageServiceInterface, topicService interfaces.TopicServiceInterface) *TopicHandlers <span class="cov0" title="0">{
+        return &amp;TopicHandlers{
+                messageService:        messageService,
+                topicService:          topicService,
+                messageStore:          make(map[string]*gotgbot.Message),
+                keyboardMessageStore:  make(map[string]int),
+                WaitingForTopicName:   make(map[int64]TopicCreationContext),
+                originalMessageStore:  make(map[int64]*gotgbot.Message),
+                recentlyMovedMessages: make(map[int64]bool),
+                keyboardBuilder:       NewKeyboardBuilder(),
+        }
+}</span>
+
+// HandleNewTopicCreationRequest handles requests to create a new topic
+func (th *TopicHandlers) HandleNewTopicCreationRequest(update *gotgbot.Update, originalMsg *gotgbot.Message) error <span class="cov0" title="0">{
+        if th.HandleNewTopicCreationRequestFunc != nil </span><span class="cov0" title="0">{
+                return th.HandleNewTopicCreationRequestFunc(update, originalMsg)
+        }</span>
+        <span class="cov0" title="0">logutils.Info("HandleNewTopicCreationRequest", "chatID", originalMsg.Chat.Id)
+
+        // Ask user for topic name
+        _, err := th.messageService.SendMessage(originalMsg.Chat.Id, config.TopicNamePrompt, &amp;gotgbot.SendMessageOpts{
+                MessageThreadId: originalMsg.MessageThreadId,
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleNewTopicCreationRequest: SendMessageError", err, "chatID", originalMsg.Chat.Id)
+                return err
+        }</span>
+
+        // Store the context for topic creation
+        <span class="cov0" title="0">th.WaitingForTopicName[update.CallbackQuery.From.Id] = TopicCreationContext{
+                ChatId:        originalMsg.Chat.Id,
+                ThreadId:      int64(originalMsg.MessageThreadId),
+                OriginalMsgId: int64(originalMsg.MessageId),
+        }
+
+        // Store the original message for this user
+        th.originalMessageStore[update.CallbackQuery.From.Id] = originalMsg
+
+        // Delete the keyboard message
+        if keyboardMsgId, exists := th.keyboardMessageStore[update.CallbackQuery.Data]; exists </span><span class="cov0" title="0">{
+                th.messageService.DeleteMessage(originalMsg.Chat.Id, keyboardMsgId)
+                delete(th.keyboardMessageStore, update.CallbackQuery.Data)
+        }</span>
+
+        <span class="cov0" title="0">logutils.Success("HandleNewTopicCreationRequest", "chatID", originalMsg.Chat.Id)
+        return nil</span>
+}
+
+// HandleTopicNameEntry handles when user provides a topic name
+func (th *TopicHandlers) HandleTopicNameEntry(update *gotgbot.Update) error <span class="cov0" title="0">{
+        if th.HandleTopicNameEntryFunc != nil </span><span class="cov0" title="0">{
+                return th.HandleTopicNameEntryFunc(update)
+        }</span>
+        <span class="cov0" title="0">logutils.Info("HandleTopicNameEntry", "userID", update.Message.From.Id)
+
+        ctx := th.WaitingForTopicName[update.Message.From.Id]
+        topicName := strings.TrimSpace(update.Message.Text)
+
+        if topicName == "" </span><span class="cov0" title="0">{
+                _, err := th.messageService.SendMessage(ctx.ChatId, config.TopicNameEmptyError, &amp;gotgbot.SendMessageOpts{})
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleTopicNameEntry: SendMessageError", err, "chatID", ctx.ChatId)
+                }</span>
+                <span class="cov0" title="0">return nil</span>
+        }
+
+        // Check if topic already exists
+        <span class="cov0" title="0">topics, err := th.topicService.GetForumTopics(ctx.ChatId)
+        if err == nil </span><span class="cov0" title="0">{
+                exists := false
+                for _, topic := range topics </span><span class="cov0" title="0">{
+                        if strings.EqualFold(topic.Name, topicName) </span><span class="cov0" title="0">{
+                                exists = true
+                                break</span>
+                        }
+                }
+                <span class="cov0" title="0">if exists </span><span class="cov0" title="0">{
+                        _, err = th.messageService.SendMessage(ctx.ChatId, config.TopicNameExistsError, &amp;gotgbot.SendMessageOpts{})
+                        if err != nil </span><span class="cov0" title="0">{
+                                logutils.Error("HandleTopicNameEntry: SendMessageError", err, "chatID", ctx.ChatId)
+                        }</span>
+                        <span class="cov0" title="0">th.cleanupTopicCreation(update.Message.From.Id)
+                        return nil</span>
+                }
+        }
+
+        // Create the topic
+        <span class="cov0" title="0">threadID, err := th.topicService.CreateForumTopic(ctx.ChatId, topicName)
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleTopicNameEntry: CreateTopicError", err, "chatID", ctx.ChatId)
+                _, sendErr := th.messageService.SendMessage(ctx.ChatId, config.ErrorMessageCreateFailed, &amp;gotgbot.SendMessageOpts{})
+                if sendErr != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleTopicNameEntry: SendMessageError", sendErr, "chatID", ctx.ChatId)
+                }</span>
+                <span class="cov0" title="0">th.cleanupTopicCreation(update.Message.From.Id)
+                return err</span>
+        }
+
+        // Send topic name as first message in new topic
+        <span class="cov0" title="0">if threadID != 0 </span><span class="cov0" title="0">{
+                _, err := th.messageService.SendMessage(ctx.ChatId, topicName, &amp;gotgbot.SendMessageOpts{
+                        MessageThreadId: threadID,
+                })
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleTopicNameEntry: SendMessageError", err, "chatID", ctx.ChatId)
+                }</span>
+        }
+
+        // Copy the original user message to the new topic
+        <span class="cov0" title="0">if origMsg, ok := th.originalMessageStore[update.Message.From.Id]; ok &amp;&amp; threadID != 0 </span><span class="cov0" title="0">{
+                _, err := th.messageService.CopyMessageToTopicWithResult(ctx.ChatId, origMsg.Chat.Id, int(origMsg.MessageId), int(threadID))
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleTopicNameEntry: CopyMessageError", err, "chatID", ctx.ChatId)
+                }</span> else<span class="cov0" title="0"> {
+                        // Build preview: first 2 lines of the original message
+                        previewLines := strings.SplitN(origMsg.Text, "\n", 3)
+                        preview := ""
+                        if len(previewLines) &gt; 0 </span><span class="cov0" title="0">{
+                                preview += "\n\"" + previewLines[0] + "\""
+                        }</span>
+                        <span class="cov0" title="0">if len(previewLines) &gt; 1 </span><span class="cov0" title="0">{
+                                preview += "\n\"" + previewLines[1] + "\""
+                        }</span>
+                        <span class="cov0" title="0">confirmMsg := config.SuccessMessageSaved + topicName + preview
+
+                        // Send confirmation message to General
+                        _, err = th.messageService.SendMessage(ctx.ChatId, confirmMsg, &amp;gotgbot.SendMessageOpts{
+                                MessageThreadId: 0,
+                        })
+                        if err != nil </span><span class="cov0" title="0">{
+                                logutils.Error("HandleTopicNameEntry: SendMessageError", err, "chatID", ctx.ChatId)
+                        }</span>
+
+                        // Delete the original message from General after a short delay
+                        <span class="cov0" title="0">go func(chatID int64, messageID int) </span><span class="cov0" title="0">{
+                                time.Sleep(config.DefaultMessageAutoDeleteDelay)
+                                _ = th.messageService.DeleteMessage(chatID, messageID)
+                        }</span>(origMsg.Chat.Id, int(origMsg.MessageId))
+                }
+        }
+
+        // Clean up state
+        <span class="cov0" title="0">th.cleanupTopicCreation(update.Message.From.Id)
+        return nil</span>
+}
+
+// HandleTopicSelectionCallback handles when user selects an existing topic
+func (th *TopicHandlers) HandleTopicSelectionCallback(update *gotgbot.Update, originalMsg *gotgbot.Message, callbackData string) error <span class="cov0" title="0">{
+        if th.HandleTopicSelectionCallbackFunc != nil </span><span class="cov0" title="0">{
+                return th.HandleTopicSelectionCallbackFunc(update, originalMsg, callbackData)
+        }</span>
+        <span class="cov0" title="0">logutils.Info("HandleTopicSelectionCallback", "callbackData", callbackData)
+
+        // Extract topic name from callback data
+        parts := strings.Split(callbackData, "_")
+        if len(parts) &lt; 2 </span><span class="cov0" title="0">{
+                logutils.Warn("HandleTopicSelectionCallback: InvalidCallbackData", "callbackData", callbackData)
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">topicName := strings.Join(parts[:len(parts)-1], "_") // Rejoin in case topic name contains underscores
+
+        // Find the topic
+        threadID, err := th.topicService.FindTopicByName(originalMsg.Chat.Id, topicName)
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleTopicSelectionCallback: FindTopicError", err, "chatID", originalMsg.Chat.Id)
+                _, sendErr := th.messageService.SendMessage(originalMsg.Chat.Id, config.ErrorMessageNotFound, &amp;gotgbot.SendMessageOpts{
+                        MessageThreadId: originalMsg.MessageThreadId,
+                })
+                if sendErr != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleTopicSelectionCallback: SendMessageError", sendErr, "chatID", originalMsg.Chat.Id)
+                }</span>
+                <span class="cov0" title="0">return err</span>
+        }
+
+        // Copy message to the selected topic
+        <span class="cov0" title="0">_, err = th.messageService.CopyMessageToTopicWithResult(originalMsg.Chat.Id, originalMsg.Chat.Id, int(originalMsg.MessageId), int(threadID))
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleTopicSelectionCallback: CopyMessageError", err, "chatID", originalMsg.Chat.Id)
+                _, sendErr := th.messageService.SendMessage(originalMsg.Chat.Id, "❌ Failed to save message to topic.", &amp;gotgbot.SendMessageOpts{
+                        MessageThreadId: originalMsg.MessageThreadId,
+                })
+                if sendErr != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleTopicSelectionCallback: SendMessageError", sendErr, "chatID", originalMsg.Chat.Id)
+                }</span>
+                <span class="cov0" title="0">return err</span>
+        }
+
+        // Mark message as moved
+        <span class="cov0" title="0">th.MarkMessageAsMoved(originalMsg.MessageId)
+
+        // Build preview: first 2 lines of the original message
+        previewLines := strings.SplitN(originalMsg.Text, "\n", 3)
+        preview := ""
+        if len(previewLines) &gt; 0 </span><span class="cov0" title="0">{
+                preview += "\n\"" + previewLines[0] + "\""
+        }</span>
+        <span class="cov0" title="0">if len(previewLines) &gt; 1 </span><span class="cov0" title="0">{
+                preview += "\n\"" + previewLines[1] + "\""
+        }</span>
+        <span class="cov0" title="0">confirmMsg := config.SuccessMessageSaved + topicName + preview
+
+        // Send confirmation message
+        _, err = th.messageService.SendMessage(originalMsg.Chat.Id, confirmMsg, &amp;gotgbot.SendMessageOpts{
+                MessageThreadId: originalMsg.MessageThreadId,
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleTopicSelectionCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
+                return err
+        }</span>
+
+        // Delete the original message after a short delay
+        <span class="cov0" title="0">go func(chatID int64, messageID int) </span><span class="cov0" title="0">{
+                time.Sleep(config.DefaultMessageAutoDeleteDelay)
+                _ = th.messageService.DeleteMessage(chatID, messageID)
+        }</span>(originalMsg.Chat.Id, int(originalMsg.MessageId))
+
+        <span class="cov0" title="0">logutils.Success("HandleTopicSelectionCallback", "topicName", topicName, "chatID", originalMsg.Chat.Id)
+        return nil</span>
+}
+
+// HandleShowAllTopicsCallback handles showing all topics from suggestions
+func (th *TopicHandlers) HandleShowAllTopicsCallback(update *gotgbot.Update, originalMsg *gotgbot.Message) error <span class="cov0" title="0">{
+        if th.HandleShowAllTopicsCallbackFunc != nil </span><span class="cov0" title="0">{
+                return th.HandleShowAllTopicsCallbackFunc(update, originalMsg)
+        }</span>
+        <span class="cov0" title="0">logutils.Info("HandleShowAllTopicsCallback", "chatID", originalMsg.Chat.Id)
+
+        topics, err := th.topicService.GetForumTopics(originalMsg.Chat.Id)
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleShowAllTopicsCallback: GetTopicsError", err, "chatID", originalMsg.Chat.Id)
+                _, sendErr := th.messageService.SendMessage(originalMsg.Chat.Id, config.ErrorMessageFailed, &amp;gotgbot.SendMessageOpts{
+                        MessageThreadId: originalMsg.MessageThreadId,
+                })
+                if sendErr != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleShowAllTopicsCallback: SendMessageError", sendErr, "chatID", originalMsg.Chat.Id)
+                }</span>
+                <span class="cov0" title="0">return err</span>
+        }
+
+        <span class="cov0" title="0">if len(topics) == 0 </span><span class="cov0" title="0">{
+                _, err = th.messageService.SendMessage(originalMsg.Chat.Id, config.NoTopicsDiscoveredMessage, &amp;gotgbot.SendMessageOpts{
+                        MessageThreadId: originalMsg.MessageThreadId,
+                })
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleShowAllTopicsCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
+                        return err
+                }</span>
+        } else<span class="cov0" title="0"> {
+                // Build keyboard with all existing topics
+                keyboard, err := th.keyboardBuilder.BuildAllTopicsKeyboard(originalMsg, topics)
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleShowAllTopicsCallback: BuildKeyboardError", err, "chatID", originalMsg.Chat.Id)
+                        return err
+                }</span>
+
+                // Store message references for all topic buttons
+                <span class="cov0" title="0">for _, topic := range topics </span><span class="cov0" title="0">{
+                        topicCallbackData := topic.Name + "_" + strconv.FormatInt(originalMsg.MessageId, 10)
+                        th.messageStore[topicCallbackData] = originalMsg
+                }</span>
+
+                <span class="cov0" title="0">backCallbackData := config.CallbackPrefixBackToSuggestions + strconv.FormatInt(originalMsg.MessageId, 10)
+                th.messageStore[backCallbackData] = originalMsg
+
+                // Try to update existing message or send new one
+                callbackData := "suggestions_" + strconv.FormatInt(originalMsg.MessageId, 10)
+                if keyboardMsgId, exists := th.keyboardMessageStore[callbackData]; exists </span><span class="cov0" title="0">{
+                        _, err = th.messageService.EditMessageText(originalMsg.Chat.Id, int64(keyboardMsgId), config.ChooseFromAllTopicsMessage, &amp;gotgbot.EditMessageTextOpts{
+                                ReplyMarkup: *keyboard,
+                        })
+                        if err != nil </span><span class="cov0" title="0">{
+                                logutils.Error("HandleShowAllTopicsCallback: EditMessageTextError", err, "chatID", originalMsg.Chat.Id)
+                                // If update fails, send new message
+                                newMsg, err := th.messageService.SendMessage(originalMsg.Chat.Id, config.ChooseFromAllTopicsMessage, &amp;gotgbot.SendMessageOpts{
+                                        MessageThreadId: originalMsg.MessageThreadId,
+                                        ReplyMarkup:     *keyboard,
+                                })
+                                if err != nil </span><span class="cov0" title="0">{
+                                        logutils.Error("HandleShowAllTopicsCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
+                                }</span> else<span class="cov0" title="0"> {
+                                        // Store keyboard message ID for all topic buttons
+                                        for _, topic := range topics </span><span class="cov0" title="0">{
+                                                topicCallbackData := topic.Name + "_" + strconv.FormatInt(originalMsg.MessageId, 10)
+                                                th.keyboardMessageStore[topicCallbackData] = int(newMsg.MessageId)
+                                        }</span>
+                                        <span class="cov0" title="0">th.keyboardMessageStore[backCallbackData] = int(newMsg.MessageId)</span>
+                                }
+                        } else<span class="cov0" title="0"> {
+                                // Store keyboard message ID for all topic buttons
+                                for _, topic := range topics </span><span class="cov0" title="0">{
+                                        topicCallbackData := topic.Name + "_" + strconv.FormatInt(originalMsg.MessageId, 10)
+                                        th.keyboardMessageStore[topicCallbackData] = keyboardMsgId
+                                }</span>
+                                <span class="cov0" title="0">th.keyboardMessageStore[backCallbackData] = keyboardMsgId</span>
+                        }
+                } else<span class="cov0" title="0"> {
+                        // Send new message with all topics
+                        newMsg, err := th.messageService.SendMessage(originalMsg.Chat.Id, config.ChooseFromAllTopicsMessage, &amp;gotgbot.SendMessageOpts{
+                                MessageThreadId: originalMsg.MessageThreadId,
+                                ReplyMarkup:     *keyboard,
+                        })
+                        if err != nil </span><span class="cov0" title="0">{
+                                logutils.Error("HandleShowAllTopicsCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
+                        }</span> else<span class="cov0" title="0"> {
+                                // Store keyboard message ID for all topic buttons
+                                for _, topic := range topics </span><span class="cov0" title="0">{
+                                        topicCallbackData := topic.Name + "_" + strconv.FormatInt(originalMsg.MessageId, 10)
+                                        th.keyboardMessageStore[topicCallbackData] = int(newMsg.MessageId)
+                                }</span>
+                                <span class="cov0" title="0">th.keyboardMessageStore[backCallbackData] = int(newMsg.MessageId)</span>
+                        }
+                }
+        }
+
+        <span class="cov0" title="0">logutils.Success("HandleShowAllTopicsCallback", "chatID", originalMsg.Chat.Id)
+        return nil</span>
+}
+
+// HandleCreateTopicMenuCallback handles the create topic menu callback
+func (th *TopicHandlers) HandleCreateTopicMenuCallback(update *gotgbot.Update, originalMsg *gotgbot.Message) error <span class="cov0" title="0">{
+        if th.HandleCreateTopicMenuCallbackFunc != nil </span><span class="cov0" title="0">{
+                return th.HandleCreateTopicMenuCallbackFunc(update, originalMsg)
+        }</span>
+        <span class="cov0" title="0">logutils.Info("HandleCreateTopicMenuCallback", "chatID", originalMsg.Chat.Id)
+
+        _, err := th.messageService.SendMessage(originalMsg.Chat.Id, config.TopicCreationMenuMessage, &amp;gotgbot.SendMessageOpts{
+                ParseMode: "Markdown",
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleCreateTopicMenuCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
+                return err
+        }</span>
+
+        // Set flag to wait for topic name
+        <span class="cov0" title="0">th.WaitingForTopicName[originalMsg.From.Id] = TopicCreationContext{
+                ChatId:        originalMsg.Chat.Id,
+                ThreadId:      int64(originalMsg.MessageThreadId),
+                OriginalMsgId: int64(originalMsg.MessageId),
+        }
+
+        logutils.Success("HandleCreateTopicMenuCallback", "chatID", originalMsg.Chat.Id)
+        return nil</span>
+}
+
+// HandleShowAllTopicsMenuCallback handles the show all topics menu callback
+func (th *TopicHandlers) HandleShowAllTopicsMenuCallback(update *gotgbot.Update, originalMsg *gotgbot.Message) error <span class="cov0" title="0">{
+        if th.HandleShowAllTopicsMenuCallbackFunc != nil </span><span class="cov0" title="0">{
+                return th.HandleShowAllTopicsMenuCallbackFunc(update, originalMsg)
+        }</span>
+        <span class="cov0" title="0">logutils.Info("HandleShowAllTopicsMenuCallback", "chatID", originalMsg.Chat.Id)
+
+        topics, err := th.topicService.GetForumTopics(originalMsg.Chat.Id)
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleShowAllTopicsMenuCallback: GetTopicsError", err, "chatID", originalMsg.Chat.Id)
+                _, sendErr := th.messageService.SendMessage(originalMsg.Chat.Id, config.ErrorMessageFailed, &amp;gotgbot.SendMessageOpts{})
+                if sendErr != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleShowAllTopicsMenuCallback: SendMessageError", sendErr, "chatID", originalMsg.Chat.Id)
+                }</span>
+                <span class="cov0" title="0">return err</span>
+        }
+
+        <span class="cov0" title="0">if len(topics) == 0 </span><span class="cov0" title="0">{
+                _, err = th.messageService.SendMessage(originalMsg.Chat.Id, config.ErrorMessageNoTopics, &amp;gotgbot.SendMessageOpts{})
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleShowAllTopicsMenuCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
+                        return err
+                }</span>
+        } else<span class="cov0" title="0"> {
+                topicList := config.TopicsListHeader
+                for _, topic := range topics </span><span class="cov0" title="0">{
+                        topicList += "• " + topic.Name + "\n"
+                }</span>
+                <span class="cov0" title="0">_, err = th.messageService.SendMessage(originalMsg.Chat.Id, topicList, &amp;gotgbot.SendMessageOpts{
+                        ParseMode: "Markdown",
+                })
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleShowAllTopicsMenuCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
+                        return err
+                }</span>
+        }
+
+        <span class="cov0" title="0">logutils.Success("HandleShowAllTopicsMenuCallback", "chatID", originalMsg.Chat.Id)
+        return nil</span>
+}
+
+// GetMessageByCallbackData retrieves the original message associated with a callback data.
+func (th *TopicHandlers) GetMessageByCallbackData(callbackData string) *gotgbot.Message <span class="cov0" title="0">{
+        return th.messageStore[callbackData]
+}</span>
+
+// IsWaitingForTopicName checks if a user is in the process of creating a new topic.
+func (th *TopicHandlers) IsWaitingForTopicName(userID int64) bool <span class="cov0" title="0">{
+        _, exists := th.WaitingForTopicName[userID]
+        return exists
+}</span>
+
+// Helper methods
+func (th *TopicHandlers) cleanupTopicCreation(userID int64) <span class="cov0" title="0">{
+        delete(th.WaitingForTopicName, userID)
+        delete(th.originalMessageStore, userID)
+}</span>
+
+func (th *TopicHandlers) IsRecentlyMovedMessage(messageID int64) bool <span class="cov0" title="0">{
+        return th.recentlyMovedMessages[messageID]
+}</span>
+
+func (th *TopicHandlers) MarkMessageAsMoved(messageID int64) <span class="cov0" title="0">{
+        th.recentlyMovedMessages[messageID] = true
+}</span>
+
+func (th *TopicHandlers) CleanupMovedMessage(messageID int64) <span class="cov0" title="0">{
+        delete(th.recentlyMovedMessages, messageID)
+}</span>
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">package handlers
+
+import (
+        "strconv"
+        "strings"
+        "time"
+
+        "save-message/internal/config"
+        "save-message/internal/interfaces"
+        "save-message/internal/logutils"
+
+        "github.com/PaulSonOfLars/gotgbot/v2"
+)
+
+// WarningHandlers handles warning messages and non-General topic interactions
+type WarningHandlers struct {
+        messageService interfaces.MessageServiceInterface
+
+        // Mockable funcs for testing
+        HandleNonGeneralTopicMessageFunc func(update *gotgbot.Update) error
+        HandleWarningOkCallbackFunc      func(update *gotgbot.Update) error
+}
+
+// NewWarningHandlers creates a new warning handlers instance
+func NewWarningHandlers(messageService interfaces.MessageServiceInterface) *WarningHandlers <span class="cov8" title="1">{
+        return &amp;WarningHandlers{
+                messageService: messageService,
+        }
+}</span>
+
+// HandleNonGeneralTopicMessage handles messages sent in non-General topics
+func (wh *WarningHandlers) HandleNonGeneralTopicMessage(update *gotgbot.Update) error <span class="cov8" title="1">{
+        if wh.HandleNonGeneralTopicMessageFunc != nil </span><span class="cov0" title="0">{
+                return wh.HandleNonGeneralTopicMessageFunc(update)
+        }</span>
+        <span class="cov8" title="1">logutils.Warn("HandleNonGeneralTopicMessage", "chatID", update.Message.Chat.Id, "threadID", update.Message.MessageThreadId, "messageID", update.Message.MessageId)
+
+        // Delete the user's message immediately
+        err := wh.messageService.DeleteMessage(update.Message.Chat.Id, int(update.Message.MessageId))
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleNonGeneralTopicMessage: DeleteMessageError", err, "chatID", update.Message.Chat.Id, "messageID", update.Message.MessageId)
+        }</span> else<span class="cov8" title="1"> {
+                logutils.Success("HandleNonGeneralTopicMessage", "chatID", update.Message.Chat.Id, "messageID", update.Message.MessageId)
+        }</span>
+
+        // Send warning message with "Ok" button
+        <span class="cov8" title="1">callbackData := config.CallbackPrefixDetectMessageOnOtherTopic + strconv.FormatInt(update.Message.MessageId, 10)
+        keyboard := &amp;gotgbot.InlineKeyboardMarkup{
+                InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
+                        {{Text: config.ButtonTextOk, CallbackData: callbackData}},
+                },
+        }
+
+        warningMsg, err := wh.messageService.SendMessage(update.Message.Chat.Id,
+                config.WarningNonGeneralTopic,
+                &amp;gotgbot.SendMessageOpts{
+                        MessageThreadId: update.Message.MessageThreadId,
+                        ParseMode:       "Markdown",
+                        ReplyMarkup:     *keyboard,
+                })
+
+        if err != nil </span><span class="cov8" title="1">{
+                logutils.Error("HandleNonGeneralTopicMessage: SendMessageError", err, "chatID", update.Message.Chat.Id, "messageID", update.Message.MessageId)
+                return err
+        }</span>
+
+        <span class="cov8" title="1">logutils.Success("HandleNonGeneralTopicMessage", "chatID", update.Message.Chat.Id, "messageID", warningMsg.MessageId)
+
+        // Auto-delete warning message after 1 minute
+        go func(chatID int64, messageID int64, threadID int64) </span><span class="cov8" title="1">{
+                time.Sleep(config.DefaultWarningAutoDeleteDelay)
+                err := wh.messageService.DeleteMessage(chatID, int(messageID))
+                if err != nil </span><span class="cov0" title="0">{
+                        logutils.Error("HandleNonGeneralTopicMessage: AutoDeleteMessageError", err, "chatID", chatID, "messageID", messageID)
+                }</span> else<span class="cov0" title="0"> {
+                        logutils.Success("HandleNonGeneralTopicMessage", "chatID", chatID, "messageID", messageID)
+                }</span>
+        }(update.Message.Chat.Id, warningMsg.MessageId, update.Message.MessageThreadId)
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// HandleWarningOkCallback handles the "Ok" button for warning messages
+func (wh *WarningHandlers) HandleWarningOkCallback(update *gotgbot.Update) error <span class="cov8" title="1">{
+        if wh.HandleWarningOkCallbackFunc != nil </span><span class="cov0" title="0">{
+                return wh.HandleWarningOkCallbackFunc(update)
+        }</span>
+        <span class="cov8" title="1">logutils.Warn("HandleWarningOkCallback", "callbackData", update.CallbackQuery.Data)
+
+        // Delete the warning message itself (the message that contains the "Ok" button)
+        err := wh.messageService.DeleteMessage(update.CallbackQuery.Message.Chat.Id, int(update.CallbackQuery.Message.MessageId))
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("HandleWarningOkCallback: DeleteMessageError", err, "chatID", update.CallbackQuery.Message.Chat.Id, "messageID", update.CallbackQuery.Message.MessageId)
+        }</span> else<span class="cov8" title="1"> {
+                logutils.Success("HandleWarningOkCallback", "chatID", update.CallbackQuery.Message.Chat.Id, "messageID", update.CallbackQuery.Message.MessageId)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// IsWarningCallback checks if a callback is a warning confirmation.
+func (wh *WarningHandlers) IsWarningCallback(callbackData string) bool <span class="cov0" title="0">{
+        return strings.HasPrefix(callbackData, config.CallbackPrefixDetectMessageOnOtherTopic)
+}</span>
+</pre>
+		
+		<pre class="file" id="file12" style="display: none">package logutils
+
+import (
+        "os"
+
+        "go.uber.org/zap"
+        "go.uber.org/zap/zapcore"
+)
+
+var logger *zap.SugaredLogger
+
+// Init initializes the global logger
+func Init() <span class="cov8" title="1">{
+        config := zap.NewProductionConfig()
+        config.EncoderConfig.TimeKey = "timestamp"
+        config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+        config.EncoderConfig.LevelKey = "level"
+        config.EncoderConfig.MessageKey = "message"
+        config.EncoderConfig.CallerKey = "caller"
+        config.EncoderConfig.StacktraceKey = "stacktrace"
+
+        // Use console encoding for development
+        if os.Getenv("ENV") != "production" </span><span class="cov8" title="1">{
+                config.Encoding = "console"
+                config.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+        }</span>
+
+        <span class="cov8" title="1">zapLogger, err := config.Build()
+        if err != nil </span><span class="cov0" title="0">{
+                panic("failed to initialize logger: " + err.Error())</span>
+        }
+
+        <span class="cov8" title="1">logger = zapLogger.Sugar()</span>
+}
+
+// Info logs an info level message with structured fields
+func Info(funcName string, kv ...any) <span class="cov8" title="1">{
+        if logger == nil </span><span class="cov8" title="1">{
+                Init()
+        }</span>
+        <span class="cov8" title="1">logger.Infow("▶️ "+funcName, kv...)</span>
+}
+
+// Warn logs a warning level message with structured fields
+func Warn(funcName string, kv ...any) <span class="cov8" title="1">{
+        if logger == nil </span><span class="cov0" title="0">{
+                Init()
+        }</span>
+        <span class="cov8" title="1">logger.Warnw("⚠️ "+funcName, kv...)</span>
+}
+
+// Error logs an error level message with structured fields
+func Error(funcName string, err error, kv ...any) <span class="cov8" title="1">{
+        if logger == nil </span><span class="cov0" title="0">{
+                Init()
+        }</span>
+        <span class="cov8" title="1">allKv := append([]any{"error", err.Error()}, kv...)
+        logger.Errorw("❌ "+funcName, allKv...)</span>
+}
+
+// Debug logs a debug level message with structured fields
+func Debug(funcName string, kv ...any) <span class="cov8" title="1">{
+        if logger == nil </span><span class="cov0" title="0">{
+                Init()
+        }</span>
+        <span class="cov8" title="1">logger.Debugw("🔍 "+funcName, kv...)</span>
+}
+
+// Success logs a success message with structured fields
+func Success(funcName string, kv ...any) <span class="cov8" title="1">{
+        if logger == nil </span><span class="cov0" title="0">{
+                Init()
+        }</span>
+        <span class="cov8" title="1">logger.Infow("✅ "+funcName, kv...)</span>
+}
+
+// Sync flushes any buffered log entries
+func Sync() error <span class="cov8" title="1">{
+        if logger == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+        <span class="cov8" title="1">return logger.Sync()</span>
+}
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">package handlers
+
+import (
+        "context"
+        "save-message/internal/interfaces"
+
+        "github.com/PaulSonOfLars/gotgbot/v2"
+)
+
+type MockAIHandlers struct{}
+
+var _ interfaces.AIHandlersInterface = (*MockAIHandlers)(nil)
+
+func (m *MockAIHandlers) HandleGeneralTopicMessage(u *gotgbot.Update) error <span class="cov0" title="0">{ return nil }</span>
+func (m *MockAIHandlers) HandleRetryCallback(u *gotgbot.Update, msg *gotgbot.Message) error <span class="cov0" title="0">{
+        return nil
+}</span>
+func (m *MockAIHandlers) HandleBackToSuggestionsCallback(u *gotgbot.Update, msg *gotgbot.Message) error <span class="cov0" title="0">{
+        return nil
+}</span>
+
+type MockAIService struct{}
+
+var _ interfaces.AIServiceInterface = (*MockAIService)(nil)
+
+func (m *MockAIService) SuggestCategories(messageText string) ([]string, error) <span class="cov0" title="0">{ return nil, nil }</span>
+func (m *MockAIService) SuggestFolders(ctx context.Context, messageText string, existingFolders []string) ([]string, error) <span class="cov0" title="0">{
+        return nil, nil
+}</span>
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">package handlers
+
+import (
+        "errors"
+        "save-message/internal/interfaces"
+
+        "github.com/PaulSonOfLars/gotgbot/v2"
+)
+
+type MockMessageService struct {
+        DeleteMessageCalled   bool
+        SendMessageCalled     bool
+        SendMessageShouldFail bool
+}
+
+var _ interfaces.MessageServiceInterface = (*MockMessageService)(nil)
+
+func (m *MockMessageService) DeleteMessage(chatID int64, messageID int) error <span class="cov0" title="0">{
+        m.DeleteMessageCalled = true
+        return nil
+}</span>
+func (m *MockMessageService) CopyMessageToTopic(chatID int64, fromChatID int64, messageID int, messageThreadID int) error <span class="cov0" title="0">{
+        return nil
+}</span>
+func (m *MockMessageService) CopyMessageToTopicWithResult(chatID int64, fromChatID int64, messageID int, messageThreadID int) (*gotgbot.Message, error) <span class="cov0" title="0">{
+        return nil, nil
+}</span>
+func (m *MockMessageService) SendMessage(chatID int64, text string, opts *gotgbot.SendMessageOpts) (*gotgbot.Message, error) <span class="cov0" title="0">{
+        m.SendMessageCalled = true
+        if m.SendMessageShouldFail </span><span class="cov0" title="0">{
+                return nil, errors.New("send failed")
+        }</span>
+        <span class="cov0" title="0">return &amp;gotgbot.Message{MessageId: 999, Chat: gotgbot.Chat{Id: chatID}}, nil</span>
+}
+func (m *MockMessageService) EditMessageText(chatID int64, messageID int64, text string, opts *gotgbot.EditMessageTextOpts) (*gotgbot.Message, error) <span class="cov0" title="0">{
+        return nil, nil
+}</span>
+func (m *MockMessageService) AnswerCallbackQuery(callbackQueryID string, opts *gotgbot.AnswerCallbackQueryOpts) error <span class="cov0" title="0">{
+        return nil
+}</span>
+</pre>
+		
+		<pre class="file" id="file15" style="display: none">package handlers
+
+import (
+        "save-message/internal/interfaces"
+
+        "github.com/PaulSonOfLars/gotgbot/v2"
+)
+
+type MockTopicHandlers struct{}
+
+var _ interfaces.TopicHandlersInterface = (*MockTopicHandlers)(nil)
+
+func (m *MockTopicHandlers) HandleNewTopicCreationRequest(u *gotgbot.Update, msg *gotgbot.Message) error <span class="cov0" title="0">{
+        return nil
+}</span>
+func (m *MockTopicHandlers) HandleTopicSelectionCallback(u *gotgbot.Update, msg *gotgbot.Message, cb string) error <span class="cov0" title="0">{
+        return nil
+}</span>
+func (m *MockTopicHandlers) HandleShowAllTopicsCallback(u *gotgbot.Update, msg *gotgbot.Message) error <span class="cov0" title="0">{
+        return nil
+}</span>
+func (m *MockTopicHandlers) HandleCreateTopicMenuCallback(u *gotgbot.Update, msg *gotgbot.Message) error <span class="cov0" title="0">{
+        return nil
+}</span>
+func (m *MockTopicHandlers) HandleShowAllTopicsMenuCallback(u *gotgbot.Update, msg *gotgbot.Message) error <span class="cov0" title="0">{
+        return nil
+}</span>
+func (m *MockTopicHandlers) HandleTopicNameEntry(u *gotgbot.Update) error        <span class="cov0" title="0">{ return nil }</span>
+func (m *MockTopicHandlers) IsRecentlyMovedMessage(messageID int64) bool         <span class="cov0" title="0">{ return false }</span>
+func (m *MockTopicHandlers) MarkMessageAsMoved(messageID int64)                  {<span class="cov0" title="0">}</span>
+func (m *MockTopicHandlers) CleanupMovedMessage(messageID int64)                 {<span class="cov0" title="0">}</span>
+func (m *MockTopicHandlers) IsWaitingForTopicName(userID int64) bool             <span class="cov0" title="0">{ return false }</span>
+func (m *MockTopicHandlers) GetMessageByCallbackData(cb string) *gotgbot.Message <span class="cov0" title="0">{ return nil }</span>
+
+type MockTopicService struct{}
+
+var _ interfaces.TopicServiceInterface = (*MockTopicService)(nil)
+
+func (m *MockTopicService) GetForumTopics(chatID int64) ([]interfaces.ForumTopic, error) <span class="cov0" title="0">{
+        return nil, nil
+}</span>
+func (m *MockTopicService) CreateForumTopic(chatID int64, name string) (int64, error) <span class="cov0" title="0">{ return 0, nil }</span>
+func (m *MockTopicService) TopicExists(chatID int64, topicName string) (bool, error) <span class="cov0" title="0">{
+        return false, nil
+}</span>
+func (m *MockTopicService) FindTopicByName(chatID int64, topicName string) (int64, error) <span class="cov0" title="0">{
+        return 0, nil
+}</span>
+func (m *MockTopicService) AddTopic(chatID int64, name string, messageThreadID int64, createdBy int64) error <span class="cov0" title="0">{
+        return nil
+}</span>
+func (m *MockTopicService) GetTopicsByChat(chatID int64) ([]interfaces.ForumTopic, error) <span class="cov0" title="0">{
+        return nil, nil
+}</span>
+</pre>
+		
+		<pre class="file" id="file16" style="display: none">package handlers
+
+import (
+        "save-message/internal/interfaces"
+
+        "github.com/PaulSonOfLars/gotgbot/v2"
+)
+
+type MockWarningHandlers struct{}
+
+var _ interfaces.WarningHandlersInterface = (*MockWarningHandlers)(nil)
+
+func (m *MockWarningHandlers) HandleNonGeneralTopicMessage(u *gotgbot.Update) error <span class="cov0" title="0">{ return nil }</span>
+func (m *MockWarningHandlers) IsWarningCallback(cb string) bool                     <span class="cov0" title="0">{ return false }</span>
+func (m *MockWarningHandlers) HandleWarningOkCallback(u *gotgbot.Update) error      <span class="cov0" title="0">{ return nil }</span>
+</pre>
+		
+		<pre class="file" id="file17" style="display: none">package router
+
+import (
+        "strings"
+
+        "save-message/internal/config"
+        "save-message/internal/interfaces"
+        "save-message/internal/logutils"
+
+        "github.com/PaulSonOfLars/gotgbot/v2"
+)
+
+// Dispatcher routes incoming updates to the appropriate handlers.
+type Dispatcher struct {
+        MessageHandlers  interfaces.MessageHandlersInterface
+        CallbackHandlers interfaces.CallbackHandlersInterface
+        MessageService   interfaces.MessageServiceInterface
+}
+
+// NewDispatcher creates a new Dispatcher.
+func NewDispatcher(
+        mh interfaces.MessageHandlersInterface,
+        ch interfaces.CallbackHandlersInterface,
+        ms interfaces.MessageServiceInterface,
+) *Dispatcher <span class="cov8" title="1">{
+        return &amp;Dispatcher{
+                MessageHandlers:  mh,
+                CallbackHandlers: ch,
+                MessageService:   ms,
+        }
+}</span>
+
+// HandleUpdate routes an update to the appropriate handler
+func (d *Dispatcher) HandleUpdate(update *gotgbot.Update) error <span class="cov8" title="1">{
+        // Handle nil updates gracefully
+        if update == nil </span><span class="cov8" title="1">{
+                logutils.Info("HandleUpdate: Received nil update, ignoring")
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">logutils.Info("HandleUpdate", "updateID", update.UpdateId)
+
+        // Handle callback queries (button clicks)
+        if update.CallbackQuery != nil </span><span class="cov0" title="0">{
+                logutils.Info("HandleUpdate: Routing to callback handler")
+                return d.CallbackHandlers.HandleCallbackQuery(update)
+        }</span>
+
+        // Handle messages
+        <span class="cov8" title="1">if update.Message != nil </span><span class="cov0" title="0">{
+                return d.handleMessage(update)
+        }</span>
+
+        <span class="cov8" title="1">logutils.Warn("HandleUpdate: Unknown update type")
+        return nil</span>
+}
+
+// handleMessage routes message updates to appropriate handlers
+func (d *Dispatcher) handleMessage(update *gotgbot.Update) error <span class="cov0" title="0">{
+        logutils.Info("handleMessage", "chatID", update.Message.Chat.Id, "messageID", update.Message.MessageId, "threadID", update.Message.MessageThreadId)
+
+        // Check if this is a new chat member (bot just joined)
+        if update.Message.NewChatMembers != nil </span><span class="cov0" title="0">{
+                for _, member := range update.Message.NewChatMembers </span><span class="cov0" title="0">{
+                        if member.Id == update.Message.From.Id </span><span class="cov0" title="0">{ // Bot joined
+                                logutils.Info("handleMessage: Bot joined chat, sending welcome message")
+                                return d.MessageHandlers.HandleStartCommand(update)
+                        }</span>
+                }
+        }
+
+        // Check if message is NOT in General topic (thread 0) - only allow messages in General
+        <span class="cov0" title="0">if update.Message.MessageThreadId != 0 </span><span class="cov0" title="0">{
+                logutils.Info("handleMessage: Message detected in non-General topic, routing to non-General handler")
+                return d.MessageHandlers.HandleNonGeneralTopicMessage(update)
+        }</span>
+
+        // Check if message was recently moved
+        <span class="cov0" title="0">if d.CallbackHandlers.IsRecentlyMovedMessage(update.Message.MessageId) </span><span class="cov0" title="0">{
+                logutils.Info("handleMessage: Skipping recently moved message: %d", update.Message.MessageId)
+                d.CallbackHandlers.CleanupMovedMessage(update.Message.MessageId)
+                return nil
+        }</span>
+
+        // Check if user is waiting to provide a topic name
+        <span class="cov0" title="0">if d.CallbackHandlers.IsWaitingForTopicName(update.Message.From.Id) </span><span class="cov0" title="0">{
+                logutils.Info("handleMessage: User is waiting for topic name, routing to topic name handler")
+                return d.CallbackHandlers.HandleTopicNameEntry(update)
+        }</span>
+
+        // Handle commands
+        <span class="cov0" title="0">switch update.Message.Text </span>{
+        case "/start":<span class="cov0" title="0">
+                logutils.Info("handleMessage: Routing to start command handler")
+                return d.MessageHandlers.HandleStartCommand(update)</span>
+        case "/help":<span class="cov0" title="0">
+                logutils.Info("handleMessage: Routing to help command handler")
+                return d.MessageHandlers.HandleHelpCommand(update)</span>
+        case "/topics":<span class="cov0" title="0">
+                logutils.Info("handleMessage: Routing to topics command handler")
+                return d.MessageHandlers.HandleTopicsCommand(update)</span>
+        case "/addtopic":<span class="cov0" title="0">
+                logutils.Info("handleMessage: Routing to add topic command handler")
+                return d.MessageHandlers.HandleAddTopicCommand(update)</span>
+        default:<span class="cov0" title="0">
+                // Handle regular messages (not commands)
+                return d.handleRegularMessage(update)</span>
+        }
+}
+
+// handleRegularMessage handles regular (non-command) messages
+func (d *Dispatcher) handleRegularMessage(update *gotgbot.Update) error <span class="cov0" title="0">{
+        logutils.Info("handleRegularMessage", "chatID", update.Message.Chat.Id, "messageID", update.Message.MessageId)
+
+        // Check if the message mentions the bot (handle both possible usernames)
+        messageText := strings.ToLower(update.Message.Text)
+        if update.Message.Text != "" &amp;&amp; (strings.Contains(messageText, "@savemessagbot") || strings.Contains(messageText, "@savemessagebot")) </span><span class="cov0" title="0">{
+                logutils.Info("handleRegularMessage: Message mentions bot, routing to bot mention handler")
+                return d.MessageHandlers.HandleBotMention(update)
+        }</span>
+
+        // Check if this is a forum chat
+        <span class="cov0" title="0">if update.Message.Chat.Type == "supergroup" </span><span class="cov0" title="0">{
+                logutils.Info("handleRegularMessage: Message in supergroup, routing to General topic handler")
+                return d.MessageHandlers.HandleGeneralTopicMessage(update)
+        }</span>
+
+        <span class="cov0" title="0">logutils.Info("handleRegularMessage: Message not in supergroup, skipping AI processing")
+        return nil</span>
+}
+
+// IsEditRequest checks if the message is an edit request
+func (d *Dispatcher) IsEditRequest(update *gotgbot.Update) bool <span class="cov8" title="1">{
+        if update == nil || update.Message == nil || update.Message.Text == "" </span><span class="cov8" title="1">{
+                return false
+        }</span>
+        <span class="cov8" title="1">return strings.HasPrefix(update.Message.Text, "Edit:")</span>
+}
+
+// IsTopicSelection checks if the callback is a topic selection
+func (d *Dispatcher) IsTopicSelection(update *gotgbot.Update) bool <span class="cov8" title="1">{
+        if update == nil || update.CallbackQuery == nil </span><span class="cov8" title="1">{
+                return false
+        }</span>
+        <span class="cov8" title="1">callbackData := update.CallbackQuery.Data
+        // Topic selection callbacks have format: "TopicName_MessageId"
+        parts := strings.Split(callbackData, "_")
+        return len(parts) &gt;= 2 &amp;&amp; !strings.HasPrefix(callbackData, "create_new_folder_") &amp;&amp;
+                !strings.HasPrefix(callbackData, "retry_") &amp;&amp;
+                !strings.HasPrefix(callbackData, "show_all_topics_") &amp;&amp;
+                !strings.HasPrefix(callbackData, "back_to_suggestions_") &amp;&amp;
+                callbackData != "create_topic_menu" &amp;&amp;
+                callbackData != "show_all_topics_menu" &amp;&amp;
+                !strings.HasPrefix(callbackData, "detectMessageOnOtherTopic_ok_")</span>
+}
+
+// IsNewTopicPrompt checks if the user is waiting for a topic name
+func (d *Dispatcher) IsNewTopicPrompt(update *gotgbot.Update) bool <span class="cov8" title="1">{
+        if update == nil || update.Message == nil || d.CallbackHandlers == nil </span><span class="cov8" title="1">{
+                return false
+        }</span>
+        <span class="cov0" title="0">return d.CallbackHandlers.IsWaitingForTopicName(update.Message.From.Id)</span>
+}
+
+// IsMessageInGeneralTopic checks if the message is in the General topic
+func (d *Dispatcher) IsMessageInGeneralTopic(update *gotgbot.Update) bool <span class="cov8" title="1">{
+        if update == nil || update.Message == nil </span><span class="cov8" title="1">{
+                return false
+        }</span>
+        <span class="cov8" title="1">return update.Message.MessageThreadId == 0 &amp;&amp; update.Message.Chat.Type == "supergroup"</span>
+}
+
+func (d *Dispatcher) sendError(update *gotgbot.Update, err error) <span class="cov0" title="0">{
+        chatID := getChatID(update)
+        if chatID == 0 </span><span class="cov0" title="0">{
+                logutils.Error("sendError: Could not determine chat ID", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">logutils.Error("sendError: Sending error message to user", err, "chatID", chatID)
+        _, sendErr := d.MessageService.SendMessage(chatID, config.ErrorMessageFailed, nil)
+        if sendErr != nil </span><span class="cov0" title="0">{
+                logutils.Error("sendError: Failed to send error message", sendErr, "chatID", chatID)
+        }</span>
+}
+
+func getChatID(update *gotgbot.Update) int64 <span class="cov0" title="0">{
+        if update.Message != nil </span><span class="cov0" title="0">{
+                return update.Message.Chat.Id
+        }</span>
+        <span class="cov0" title="0">if update.CallbackQuery != nil </span><span class="cov0" title="0">{
+                return update.CallbackQuery.Message.Chat.Id
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+</pre>
+		
+		<pre class="file" id="file18" style="display: none">package router
+
+import (
+        "context"
+
+        gotgbot "github.com/PaulSonOfLars/gotgbot/v2"
+)
+
+// HandleMessage processes incoming messages and replies appropriately
+func HandleMessage(ctx context.Context, bot *gotgbot.Bot, msg *gotgbot.Message) error <span class="cov8" title="1">{
+        // TODO: Re-implement message handling using gotgbot types and methods.
+        return nil
+}</span>
+</pre>
+		
+		<pre class="file" id="file19" style="display: none">package services
+
+import (
+        "context"
+        "net/http"
+
+        "save-message/internal/ai"
+        "save-message/internal/interfaces"
+        "save-message/internal/logutils"
+)
+
+// AIService handles AI-powered folder suggestions
+type AIService struct {
+        openAIClient ai.OpenAIClientInterface
+}
+
+// NewAIService creates a new AI service
+func NewAIService(openaiKey string, client interfaces.HTTPClient) *AIService <span class="cov0" title="0">{
+        if client == nil </span><span class="cov0" title="0">{
+                client = &amp;http.Client{}
+        }</span>
+        <span class="cov0" title="0">return &amp;AIService{
+                openAIClient: ai.NewOpenAIClient(openaiKey, client),
+        }</span>
+}
+
+// SuggestFolders suggests folders based on message content
+func (as *AIService) SuggestFolders(ctx context.Context, messageText string, existingFolders []string) ([]string, error) <span class="cov8" title="1">{
+        logutils.Info("SuggestFolders", "messageText", messageText, "existingFolders", existingFolders)
+
+        suggestions, err := as.openAIClient.SuggestFolders(ctx, messageText, existingFolders)
+        if err != nil </span><span class="cov8" title="1">{
+                logutils.Error("SuggestFolders: OpenAIClientError", err, "messageText", messageText)
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">logutils.Success("SuggestFolders", "suggestions_count", len(suggestions))
+        return suggestions, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file20" style="display: none">package services
+
+import (
+        "encoding/json"
+        "fmt"
+        "io"
+        "net/http"
+        "strings"
+        "time"
+
+        "save-message/internal/database"
+        "save-message/internal/interfaces"
+        "save-message/internal/logutils"
+
+        "github.com/PaulSonOfLars/gotgbot/v2"
+)
+
+// MessageService handles all message-related operations
+type MessageService struct {
+        BotToken string
+        db       database.DatabaseInterface
+}
+
+// NewMessageService creates a new message service
+func NewMessageService(botToken string, db database.DatabaseInterface) *MessageService <span class="cov8" title="1">{
+        return &amp;MessageService{
+                BotToken: botToken,
+                db:       db,
+        }
+}</span>
+
+var _ interfaces.MessageServiceInterface = (*MessageService)(nil)
+
+// DeleteMessage deletes a message from a chat
+func (ms *MessageService) DeleteMessage(chatID int64, messageID int) error <span class="cov8" title="1">{
+        logutils.Info("DeleteMessage", "chatID", chatID, "messageID", messageID)
+
+        url := fmt.Sprintf("https://api.telegram.org/bot%s/deleteMessage", ms.BotToken)
+
+        requestBody := map[string]interface{}{
+                "chat_id":    chatID,
+                "message_id": messageID,
+        }
+
+        bodyBytes, _ := json.Marshal(requestBody)
+
+        req, err := http.NewRequest("POST", url, strings.NewReader(string(bodyBytes)))
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("DeleteMessage: CreateRequest", err, "chatID", chatID)
+                return err
+        }</span>
+        <span class="cov8" title="1">req.Header.Set("Content-Type", "application/json")
+
+        client := &amp;http.Client{Timeout: 10 * time.Second}
+        resp, err := client.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("DeleteMessage: ExecuteRequest", err, "chatID", chatID)
+                return err
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        body, _ := io.ReadAll(resp.Body)
+
+        var result struct {
+                Ok bool `json:"ok"`
+        }
+
+        if err := json.Unmarshal(body, &amp;result); err != nil </span><span class="cov0" title="0">{
+                logutils.Error("DeleteMessage: ParseResponse", err, "body", string(body))
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if !result.Ok </span><span class="cov8" title="1">{
+                err := fmt.Errorf("failed to delete message: %s", string(body))
+                logutils.Warn("DeleteMessage: APIError", "error", err.Error())
+                return err
+        }</span>
+
+        <span class="cov0" title="0">logutils.Success("DeleteMessage", "chatID", chatID, "messageID", messageID)
+        return nil</span>
+}
+
+// CopyMessageToTopic copies a message to a specific topic
+func (ms *MessageService) CopyMessageToTopic(chatID int64, fromChatID int64, messageID int, messageThreadID int) error <span class="cov8" title="1">{
+        logutils.Info("CopyMessageToTopic", "chatID", chatID, "fromChatID", fromChatID, "messageID", messageID, "messageThreadID", messageThreadID)
+
+        url := fmt.Sprintf("https://api.telegram.org/bot%s/copyMessage", ms.BotToken)
+
+        requestBody := map[string]interface{}{
+                "chat_id":           chatID,
+                "from_chat_id":      fromChatID,
+                "message_id":        messageID,
+                "message_thread_id": messageThreadID,
+        }
+
+        bodyBytes, _ := json.Marshal(requestBody)
+
+        req, err := http.NewRequest("POST", url, strings.NewReader(string(bodyBytes)))
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("CopyMessageToTopic: CreateRequest", err, "chatID", chatID)
+                return err
+        }</span>
+        <span class="cov8" title="1">req.Header.Set("Content-Type", "application/json")
+
+        client := &amp;http.Client{Timeout: 10 * time.Second}
+        resp, err := client.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("CopyMessageToTopic: ExecuteRequest", err, "chatID", chatID)
+                return err
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        body, _ := io.ReadAll(resp.Body)
+
+        var result struct {
+                Ok bool `json:"ok"`
+        }
+
+        if err := json.Unmarshal(body, &amp;result); err != nil </span><span class="cov0" title="0">{
+                logutils.Error("CopyMessageToTopic: ParseResponse", err, "body", string(body))
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if !result.Ok </span><span class="cov8" title="1">{
+                err := fmt.Errorf("failed to copy message: %s", string(body))
+                logutils.Warn("CopyMessageToTopic: APIError", "error", err.Error())
+                return err
+        }</span>
+
+        <span class="cov0" title="0">logutils.Success("CopyMessageToTopic", "chatID", chatID, "messageID", messageID, "messageThreadID", messageThreadID)
+        return nil</span>
+}
+
+// CopyMessageToTopicWithResult copies a message to a topic and returns the new message
+func (ms *MessageService) CopyMessageToTopicWithResult(chatID int64, fromChatID int64, messageID int, messageThreadID int) (*gotgbot.Message, error) <span class="cov8" title="1">{
+        logutils.Info("CopyMessageToTopicWithResult", "chatID", chatID, "fromChatID", fromChatID, "messageID", messageID, "messageThreadID", messageThreadID)
+
+        url := fmt.Sprintf("https://api.telegram.org/bot%s/copyMessage", ms.BotToken)
+
+        requestBody := map[string]interface{}{
+                "chat_id":           chatID,
+                "from_chat_id":      fromChatID,
+                "message_id":        messageID,
+                "message_thread_id": messageThreadID,
+        }
+
+        bodyBytes, _ := json.Marshal(requestBody)
+
+        req, err := http.NewRequest("POST", url, strings.NewReader(string(bodyBytes)))
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("CopyMessageToTopicWithResult: CreateRequest", err, "chatID", chatID)
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">req.Header.Set("Content-Type", "application/json")
+
+        client := &amp;http.Client{Timeout: 10 * time.Second}
+        resp, err := client.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("CopyMessageToTopicWithResult: ExecuteRequest", err, "chatID", chatID)
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        body, _ := io.ReadAll(resp.Body)
+
+        var result struct {
+                Ok     bool            `json:"ok"`
+                Result gotgbot.Message `json:"result"`
+        }
+
+        if err := json.Unmarshal(body, &amp;result); err != nil </span><span class="cov0" title="0">{
+                logutils.Error("CopyMessageToTopicWithResult: ParseResponse", err, "body", string(body))
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">if !result.Ok </span><span class="cov8" title="1">{
+                err := fmt.Errorf("failed to copy message: %s", string(body))
+                logutils.Warn("CopyMessageToTopicWithResult: APIError", "error", err.Error())
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">logutils.Success("CopyMessageToTopicWithResult", "chatID", chatID, "messageID", messageID, "messageThreadID", messageThreadID)
+        return &amp;result.Result, nil</span>
+}
+
+// SendMessage sends a message to a chat
+func (ms *MessageService) SendMessage(chatID int64, text string, opts *gotgbot.SendMessageOpts) (*gotgbot.Message, error) <span class="cov8" title="1">{
+        logutils.Info("SendMessage", "chatID", chatID, "text", text)
+
+        url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", ms.BotToken)
+
+        requestBody := map[string]interface{}{
+                "chat_id": chatID,
+                "text":    text,
+        }
+
+        if opts != nil </span><span class="cov8" title="1">{
+                if opts.ParseMode != "" </span><span class="cov8" title="1">{
+                        requestBody["parse_mode"] = opts.ParseMode
+                }</span>
+                <span class="cov8" title="1">if opts.MessageThreadId != 0 </span><span class="cov8" title="1">{
+                        requestBody["message_thread_id"] = opts.MessageThreadId
+                }</span>
+                <span class="cov8" title="1">if opts.ReplyMarkup != nil </span><span class="cov0" title="0">{
+                        requestBody["reply_markup"] = opts.ReplyMarkup
+                }</span>
+        }
+
+        <span class="cov8" title="1">bodyBytes, _ := json.Marshal(requestBody)
+
+        req, err := http.NewRequest("POST", url, strings.NewReader(string(bodyBytes)))
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("SendMessage: CreateRequest", err, "chatID", chatID)
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">req.Header.Set("Content-Type", "application/json")
+
+        client := &amp;http.Client{Timeout: 10 * time.Second}
+        resp, err := client.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("SendMessage: ExecuteRequest", err, "chatID", chatID)
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        body, _ := io.ReadAll(resp.Body)
+
+        var result struct {
+                Ok     bool            `json:"ok"`
+                Result gotgbot.Message `json:"result"`
+        }
+
+        if err := json.Unmarshal(body, &amp;result); err != nil </span><span class="cov0" title="0">{
+                logutils.Error("SendMessage: ParseResponse", err, "body", string(body))
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">if !result.Ok </span><span class="cov8" title="1">{
+                err := fmt.Errorf("failed to send message: %s", string(body))
+                logutils.Warn("SendMessage: APIError", "error", err.Error())
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">logutils.Success("SendMessage", "chatID", chatID, "messageID", result.Result.MessageId)
+        return &amp;result.Result, nil</span>
+}
+
+// EditMessageText edits a message's text
+func (ms *MessageService) EditMessageText(chatID int64, messageID int64, text string, opts *gotgbot.EditMessageTextOpts) (*gotgbot.Message, error) <span class="cov8" title="1">{
+        logutils.Info("EditMessageText", "chatID", chatID, "messageID", messageID, "text", text)
+
+        url := fmt.Sprintf("https://api.telegram.org/bot%s/editMessageText", ms.BotToken)
+
+        requestBody := map[string]interface{}{
+                "chat_id":    chatID,
+                "message_id": messageID,
+                "text":       text,
+        }
+
+        if opts != nil </span><span class="cov8" title="1">{
+                if opts.ParseMode != "" </span><span class="cov8" title="1">{
+                        requestBody["parse_mode"] = opts.ParseMode
+                }</span>
+                // Check if ReplyMarkup has any content
+                <span class="cov8" title="1">if len(opts.ReplyMarkup.InlineKeyboard) &gt; 0 </span><span class="cov0" title="0">{
+                        requestBody["reply_markup"] = opts.ReplyMarkup
+                }</span>
+        }
+
+        <span class="cov8" title="1">bodyBytes, _ := json.Marshal(requestBody)
+        logutils.Info("EditMessageText: RequestBody", "body", string(bodyBytes))
+
+        req, err := http.NewRequest("POST", url, strings.NewReader(string(bodyBytes)))
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("EditMessageText: CreateRequest", err, "chatID", chatID)
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">req.Header.Set("Content-Type", "application/json")
+
+        client := &amp;http.Client{Timeout: 10 * time.Second}
+        resp, err := client.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("EditMessageText: ExecuteRequest", err, "chatID", chatID)
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        body, _ := io.ReadAll(resp.Body)
+        logutils.Info("EditMessageText: ResponseBody", "body", string(body))
+
+        var result struct {
+                Ok     bool            `json:"ok"`
+                Result gotgbot.Message `json:"result"`
+        }
+
+        if err := json.Unmarshal(body, &amp;result); err != nil </span><span class="cov0" title="0">{
+                logutils.Error("EditMessageText: ParseResponse", err, "body", string(body))
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">if !result.Ok </span><span class="cov8" title="1">{
+                err := fmt.Errorf("failed to edit message: %s", string(body))
+                logutils.Warn("EditMessageText: APIError", "error", err.Error())
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">logutils.Success("EditMessageText", "chatID", chatID, "messageID", messageID)
+        return &amp;result.Result, nil</span>
+}
+
+// AnswerCallbackQuery answers a callback query
+func (ms *MessageService) AnswerCallbackQuery(callbackQueryID string, opts *gotgbot.AnswerCallbackQueryOpts) error <span class="cov8" title="1">{
+        logutils.Info("AnswerCallbackQuery", "callbackQueryID", callbackQueryID)
+
+        url := fmt.Sprintf("https://api.telegram.org/bot%s/answerCallbackQuery", ms.BotToken)
+
+        requestBody := map[string]interface{}{
+                "callback_query_id": callbackQueryID,
+        }
+
+        if opts != nil </span><span class="cov8" title="1">{
+                if opts.Text != "" </span><span class="cov8" title="1">{
+                        requestBody["text"] = opts.Text
+                }</span>
+                <span class="cov8" title="1">if opts.ShowAlert </span><span class="cov0" title="0">{
+                        requestBody["show_alert"] = opts.ShowAlert
+                }</span>
+        }
+
+        <span class="cov8" title="1">bodyBytes, _ := json.Marshal(requestBody)
+
+        req, err := http.NewRequest("POST", url, strings.NewReader(string(bodyBytes)))
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("AnswerCallbackQuery: CreateRequest", err, "callbackQueryID", callbackQueryID)
+                return err
+        }</span>
+        <span class="cov8" title="1">req.Header.Set("Content-Type", "application/json")
+
+        client := &amp;http.Client{Timeout: 10 * time.Second}
+        resp, err := client.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("AnswerCallbackQuery: ExecuteRequest", err, "callbackQueryID", callbackQueryID)
+                return err
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        body, _ := io.ReadAll(resp.Body)
+
+        var result struct {
+                Ok bool `json:"ok"`
+        }
+
+        if err := json.Unmarshal(body, &amp;result); err != nil </span><span class="cov0" title="0">{
+                logutils.Error("AnswerCallbackQuery: ParseResponse", err, "body", string(body))
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if !result.Ok </span><span class="cov8" title="1">{
+                err := fmt.Errorf("failed to answer callback query: %s", string(body))
+                logutils.Warn("AnswerCallbackQuery: APIError", "error", err.Error())
+                return err
+        }</span>
+
+        <span class="cov0" title="0">logutils.Success("AnswerCallbackQuery", "callbackQueryID", callbackQueryID)
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file21" style="display: none">package services
+
+import (
+        "encoding/json"
+        "fmt"
+        "io"
+        "net/http"
+        "strings"
+        "time"
+
+        "save-message/internal/database"
+        "save-message/internal/interfaces"
+        "save-message/internal/logutils"
+)
+
+// TopicService handles all topic-related operations
+type TopicService struct {
+        botToken string
+        db       database.DatabaseInterface
+        client   interfaces.HTTPClient
+}
+
+// NewTopicService creates a new topic service
+func NewTopicService(botToken string, db database.DatabaseInterface, client interfaces.HTTPClient) *TopicService <span class="cov8" title="1">{
+        if client == nil </span><span class="cov0" title="0">{
+                client = &amp;http.Client{Timeout: 10 * time.Second}
+        }</span>
+        <span class="cov8" title="1">return &amp;TopicService{
+                botToken: botToken,
+                db:       db,
+                client:   client,
+        }</span>
+}
+
+var _ interfaces.TopicServiceInterface = (*TopicService)(nil)
+
+// GetForumTopics fetches all topics in a forum
+func (ts *TopicService) GetForumTopics(chatID int64) ([]interfaces.ForumTopic, error) <span class="cov8" title="1">{
+        logutils.Info("GetForumTopics", "chatID", chatID)
+
+        // First, check if this is a forum chat
+        chatURL := fmt.Sprintf("https://api.telegram.org/bot%s/getChat?chat_id=%d", ts.botToken, chatID)
+        chatResp, err := ts.client.Get(chatURL)
+        if err == nil </span><span class="cov8" title="1">{
+                defer chatResp.Body.Close()
+                chatBody, _ := io.ReadAll(chatResp.Body)
+                logutils.Debug("GetForumTopics", "getChat_response", string(chatBody))
+
+                var chatResult struct {
+                        Ok     bool `json:"ok"`
+                        Result struct {
+                                Type    string `json:"type"`
+                                IsForum bool   `json:"is_forum"`
+                        } `json:"result"`
+                }
+
+                if err := json.Unmarshal(chatBody, &amp;chatResult); err == nil &amp;&amp; chatResult.Ok </span><span class="cov8" title="1">{
+                        logutils.Debug("GetForumTopics", "chat_type", chatResult.Result.Type, "is_forum", chatResult.Result.IsForum)
+                }</span>
+        } else<span class="cov0" title="0"> {
+                logutils.Warn("GetForumTopics: GetChatFailed", "error", err.Error(), "chatID", chatID)
+        }</span>
+
+        // Try different methods to get forum topics
+        <span class="cov8" title="1">methods := []string{
+                "getForumTopics",
+                "getForumTopicByID",
+        }
+
+        for _, method := range methods </span><span class="cov8" title="1">{
+                url := fmt.Sprintf("https://api.telegram.org/bot%s/%s?chat_id=%d", ts.botToken, method, chatID)
+                resp, err := ts.client.Get(url)
+                if err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">defer resp.Body.Close()
+
+                body, _ := io.ReadAll(resp.Body)
+                logutils.Debug("GetForumTopics", "method", method, "response", string(body))
+
+                var result struct {
+                        Ok     bool `json:"ok"`
+                        Result struct {
+                                Topics []interfaces.ForumTopic `json:"topics"`
+                        } `json:"result"`
+                }
+
+                if err := json.Unmarshal(body, &amp;result); err != nil </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">if result.Ok </span><span class="cov8" title="1">{
+                        logutils.Success("GetForumTopics", "method", method, "topics_count", len(result.Result.Topics))
+                        // Update database with found topics
+                        for _, topic := range result.Result.Topics </span><span class="cov8" title="1">{
+                                err := ts.db.AddTopic(chatID, topic.Name, topic.ID, 0) // 0 for system-created topics
+                                if err != nil </span><span class="cov0" title="0">{
+                                        logutils.Error("GetForumTopics", err, "chatID", chatID, "topic_name", topic.Name)
+                                }</span>
+                        }
+                        <span class="cov8" title="1">return result.Result.Topics, nil</span>
+                }
+        }
+
+        // If all methods fail, use database
+        <span class="cov8" title="1">logutils.Warn("GetForumTopics", "message", "All API methods failed, falling back to database", "chatID", chatID)
+        dbTopics, err := ts.db.GetTopicsByChat(chatID)
+        if err != nil </span><span class="cov8" title="1">{
+                logutils.Error("GetForumTopics", err, "chatID", chatID)
+                return []interfaces.ForumTopic{}, nil
+        }</span>
+
+        <span class="cov8" title="1">var topics []interfaces.ForumTopic
+        for _, dbTopic := range dbTopics </span><span class="cov8" title="1">{
+                topics = append(topics, interfaces.ForumTopic{
+                        ID:   dbTopic.MessageThreadId,
+                        Name: dbTopic.Name,
+                })
+        }</span>
+        <span class="cov8" title="1">logutils.Success("GetForumTopics", "database_topics_count", len(topics), "chatID", chatID)
+        return topics, nil</span>
+}
+
+// CreateForumTopic creates a new topic in a forum
+func (ts *TopicService) CreateForumTopic(chatID int64, name string) (int64, error) <span class="cov8" title="1">{
+        logutils.Info("CreateForumTopic", "chatID", chatID, "name", name)
+
+        url := fmt.Sprintf("https://api.telegram.org/bot%s/createForumTopic", ts.botToken)
+
+        requestBody := map[string]interface{}{
+                "chat_id": chatID,
+                "name":    name,
+        }
+
+        bodyBytes, _ := json.Marshal(requestBody)
+
+        req, err := http.NewRequest("POST", url, strings.NewReader(string(bodyBytes)))
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("CreateForumTopic: CreateRequest", err, "chatID", chatID, "name", name)
+                return 0, err
+        }</span>
+        <span class="cov8" title="1">req.Header.Set("Content-Type", "application/json")
+
+        client := ts.client
+        resp, err := client.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("CreateForumTopic", err, "chatID", chatID, "name", name)
+                return 0, err
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        body, _ := io.ReadAll(resp.Body)
+
+        var result struct {
+                Ok     bool                  `json:"ok"`
+                Result interfaces.ForumTopic `json:"result"`
+        }
+
+        if err := json.Unmarshal(body, &amp;result); err != nil </span><span class="cov8" title="1">{
+                logutils.Error("CreateForumTopic", err, "response_body", string(body))
+                return 0, err
+        }</span>
+
+        <span class="cov8" title="1">if !result.Ok </span><span class="cov8" title="1">{
+                logutils.Error("CreateForumTopic", fmt.Errorf("failed to create topic: %s", string(body)), "chatID", chatID, "name", name)
+                return 0, fmt.Errorf("failed to create topic: %s", string(body))
+        }</span>
+
+        // Add topic to database
+        <span class="cov8" title="1">err = ts.db.AddTopic(chatID, name, result.Result.ID, 0) // 0 for system-created topics
+        if err != nil </span><span class="cov8" title="1">{
+                logutils.Error("CreateForumTopic", err, "chatID", chatID, "name", name, "threadID", result.Result.ID)
+        }</span> else<span class="cov8" title="1"> {
+                logutils.Success("CreateForumTopic", "chatID", chatID, "name", name, "threadID", result.Result.ID)
+        }</span>
+
+        <span class="cov8" title="1">return result.Result.ID, nil</span>
+}
+
+// TopicExists checks if a topic exists in the database
+func (ts *TopicService) TopicExists(chatID int64, topicName string) (bool, error) <span class="cov8" title="1">{
+        logutils.Info("TopicExists", "chatID", chatID, "topicName", topicName)
+
+        topics, err := ts.GetForumTopics(chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("TopicExists", err, "chatID", chatID, "topicName", topicName)
+                return false, err
+        }</span>
+
+        <span class="cov8" title="1">for _, topic := range topics </span><span class="cov8" title="1">{
+                if strings.EqualFold(topic.Name, topicName) </span><span class="cov8" title="1">{
+                        logutils.Success("TopicExists", "topicName", topicName, "exists", true)
+                        return true, nil
+                }</span>
+        }
+
+        <span class="cov8" title="1">logutils.Success("TopicExists", "topicName", topicName, "exists", false)
+        return false, nil</span>
+}
+
+// FindTopicByName finds a topic by name (case-insensitive)
+func (ts *TopicService) FindTopicByName(chatID int64, topicName string) (int64, error) <span class="cov8" title="1">{
+        logutils.Info("FindTopicByName", "chatID", chatID, "topicName", topicName)
+
+        topics, err := ts.GetForumTopics(chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                logutils.Error("FindTopicByName", err, "chatID", chatID, "topicName", topicName)
+                return 0, err
+        }</span>
+
+        <span class="cov8" title="1">for _, topic := range topics </span><span class="cov8" title="1">{
+                if strings.EqualFold(topic.Name, topicName) </span><span class="cov8" title="1">{
+                        logutils.Success("FindTopicByName", "topicName", topicName, "threadID", topic.ID)
+                        return topic.ID, nil
+                }</span>
+        }
+
+        <span class="cov8" title="1">logutils.Warn("FindTopicByName", "message", "Topic not found", "topicName", topicName)
+        return 0, fmt.Errorf("topic not found: %s", topicName)</span>
+}
+</pre>
+		
+		<pre class="file" id="file22" style="display: none">package setup
+
+import (
+        "fmt"
+        "log"
+        "net/http"
+        "os"
+        "time"
+
+        "save-message/internal/database"
+        "save-message/internal/handlers"
+        "save-message/internal/router"
+        "save-message/internal/services"
+
+        "github.com/PaulSonOfLars/gotgbot/v2"
+        "github.com/joho/godotenv"
+)
+
+// BotConfig holds all configuration for the bot
+type BotConfig struct {
+        BotToken  string
+        OpenAIKey string
+        DBPath    string
+}
+
+// BotInstance holds all initialized components
+type BotInstance struct {
+        Bot              *gotgbot.Bot
+        Config           *BotConfig
+        Database         *database.Database
+        MessageService   *services.MessageService
+        TopicService     *services.TopicService
+        AIService        *services.AIService
+        MessageHandlers  *handlers.MessageHandlers
+        CallbackHandlers *handlers.CallbackHandlers
+        Dispatcher       *router.Dispatcher
+}
+
+// LoadConfig loads configuration from environment
+func LoadConfig() (*BotConfig, error) <span class="cov8" title="1">{
+        log.Printf("[Setup] Loading configuration from environment")
+
+        _ = godotenv.Load()
+
+        botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+        if botToken == "" </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("TELEGRAM_BOT_TOKEN is not set in .env")
+        }</span>
+
+        <span class="cov8" title="1">openaiKey := os.Getenv("OPENAI_API_KEY")
+        if openaiKey == "" </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("OPENAI_API_KEY is not set in .env")
+        }</span>
+
+        <span class="cov8" title="1">dbPath := os.Getenv("DB_PATH")
+        if dbPath == "" </span><span class="cov8" title="1">{
+                dbPath = "bot.db" // Default database path
+        }</span>
+
+        <span class="cov8" title="1">config := &amp;BotConfig{
+                BotToken:  botToken,
+                OpenAIKey: openaiKey,
+                DBPath:    dbPath,
+        }
+
+        log.Printf("[Setup] Configuration loaded successfully")
+        return config, nil</span>
+}
+
+// InitializeBot creates and initializes all bot components
+func InitializeBot(config *BotConfig) (*BotInstance, error) <span class="cov8" title="1">{
+        log.Printf("[Setup] Initializing bot components")
+
+        bot, err := gotgbot.NewBot(config.BotToken, nil)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to create bot: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">db, err := database.NewDatabase(config.DBPath)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to initialize database: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">httpClient := &amp;http.Client{Timeout: 15 * time.Second}
+
+        // Initialize services with the correct signatures
+        messageService := services.NewMessageService(config.BotToken, db)
+        topicService := services.NewTopicService(config.BotToken, db, httpClient)
+        aiService := services.NewAIService(config.OpenAIKey, httpClient)
+
+        // Initialize handlers in the correct order
+        commandHandlers := handlers.NewCommandHandlers(messageService, topicService)
+        warningHandlers := handlers.NewWarningHandlers(messageService)
+        aiHandlers := handlers.NewAIHandlers(messageService, topicService, aiService)
+        topicHandlers := handlers.NewTopicHandlers(messageService, topicService)
+
+        // This was the key: Inject the concrete handlers
+        callbackHandlers := handlers.NewCallbackHandlers(
+                messageService,
+                topicHandlers,
+                aiHandlers,
+                warningHandlers,
+        )
+
+        messageHandlers := handlers.NewMessageHandlers(
+                commandHandlers,
+                aiHandlers,
+                topicHandlers,
+                warningHandlers,
+                messageService,
+                bot.User.Username,
+        )
+
+        // Initialize the dispatcher, passing handlers and services (as interfaces).
+        dispatcher := router.NewDispatcher(
+                messageHandlers,
+                callbackHandlers,
+                messageService,
+        )
+
+        instance := &amp;BotInstance{
+                Bot:              bot,
+                Config:           config,
+                Database:         db,
+                MessageService:   messageService,
+                TopicService:     topicService,
+                AIService:        aiService,
+                MessageHandlers:  messageHandlers,
+                CallbackHandlers: callbackHandlers,
+                Dispatcher:       dispatcher,
+        }
+
+        log.Printf("[Setup] Bot initialized successfully: %s", bot.User.Username)
+        return instance, nil</span>
+}
+
+// Cleanup performs cleanup operations
+func (bi *BotInstance) Cleanup() <span class="cov8" title="1">{
+        log.Printf("[Setup] Cleaning up bot instance")
+        if bi.Database != nil </span><span class="cov0" title="0">{
+                bi.Database.Close()
+        }</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

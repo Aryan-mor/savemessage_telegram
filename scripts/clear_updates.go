@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -17,10 +19,10 @@ func main() {
 		log.Fatal("TELEGRAM_BOT_TOKEN is not set in .env")
 	}
 
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/deleteWebhook", token)
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/getUpdates?offset=-1", token)
 	resp, err := http.Get(url)
 	if err != nil {
-		log.Fatalf("Failed to call deleteWebhook: %v", err)
+		log.Fatalf("Failed to call getUpdates: %v", err)
 	}
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)

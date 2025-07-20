@@ -1,23 +1,30 @@
 package handlers
 
 import (
-	"log"
 	"strings"
 
 	"save-message/internal/config"
-	"save-message/internal/services"
+	"save-message/internal/interfaces"
+	"save-message/internal/logutils"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 )
 
 // CommandHandlers handles all command-related interactions
 type CommandHandlers struct {
-	MessageService *services.MessageService
-	TopicService   *services.TopicService
+	MessageService interfaces.MessageServiceInterface
+	TopicService   interfaces.TopicServiceInterface
+
+	// Mockable funcs for testing
+	HandleStartCommandFunc    func(update *gotgbot.Update) error
+	HandleHelpCommandFunc     func(update *gotgbot.Update) error
+	HandleTopicsCommandFunc   func(update *gotgbot.Update) error
+	HandleAddTopicCommandFunc func(update *gotgbot.Update) error
+	HandleBotMentionFunc      func(update *gotgbot.Update) error
 }
 
 // NewCommandHandlers creates a new command handlers instance
-func NewCommandHandlers(messageService *services.MessageService, topicService *services.TopicService) *CommandHandlers {
+func NewCommandHandlers(messageService interfaces.MessageServiceInterface, topicService interfaces.TopicServiceInterface) *CommandHandlers {
 	return &CommandHandlers{
 		MessageService: messageService,
 		TopicService:   topicService,
@@ -26,44 +33,42 @@ func NewCommandHandlers(messageService *services.MessageService, topicService *s
 
 // HandleStartCommand handles the /start command
 func (ch *CommandHandlers) HandleStartCommand(update *gotgbot.Update) error {
-	log.Printf("[CommandHandlers] Handling /start command: ChatID=%d", update.Message.Chat.Id)
+	logutils.Info("HandleStartCommand", "chatID", update.Message.Chat.Id)
 
 	_, err := ch.MessageService.SendMessage(update.Message.Chat.Id, config.WelcomeMessage, nil)
 	if err != nil {
-		log.Printf("[CommandHandlers] Error sending start message: %v", err)
+		logutils.Error("HandleStartCommand: SendMessageError", err, "chatID", update.Message.Chat.Id)
 		return err
 	}
-
-	log.Printf("[CommandHandlers] Successfully sent start message: ChatID=%d", update.Message.Chat.Id)
+	logutils.Success("HandleStartCommand", "chatID", update.Message.Chat.Id)
 	return nil
 }
 
 // HandleHelpCommand handles the /help command
 func (ch *CommandHandlers) HandleHelpCommand(update *gotgbot.Update) error {
-	log.Printf("[CommandHandlers] Handling /help command: ChatID=%d", update.Message.Chat.Id)
+	logutils.Info("HandleHelpCommand", "chatID", update.Message.Chat.Id)
 
 	_, err := ch.MessageService.SendMessage(update.Message.Chat.Id, config.HelpMessage, &gotgbot.SendMessageOpts{
 		ParseMode: "Markdown",
 	})
 	if err != nil {
-		log.Printf("[CommandHandlers] Error sending help message: %v", err)
+		logutils.Error("HandleHelpCommand: SendMessageError", err, "chatID", update.Message.Chat.Id)
 		return err
 	}
-
-	log.Printf("[CommandHandlers] Successfully sent help message: ChatID=%d", update.Message.Chat.Id)
+	logutils.Success("HandleHelpCommand", "chatID", update.Message.Chat.Id)
 	return nil
 }
 
 // HandleTopicsCommand handles the /topics command
 func (ch *CommandHandlers) HandleTopicsCommand(update *gotgbot.Update) error {
-	log.Printf("[CommandHandlers] Handling /topics command: ChatID=%d", update.Message.Chat.Id)
+	logutils.Info("HandleTopicsCommand", "chatID", update.Message.Chat.Id)
 
 	topics, err := ch.TopicService.GetForumTopics(update.Message.Chat.Id)
 	if err != nil {
-		log.Printf("[CommandHandlers] Error getting topics: %v", err)
+		logutils.Error("HandleTopicsCommand: GetForumTopicsError", err, "chatID", update.Message.Chat.Id)
 		_, sendErr := ch.MessageService.SendMessage(update.Message.Chat.Id, config.ErrorMessageFailed, &gotgbot.SendMessageOpts{})
 		if sendErr != nil {
-			log.Printf("[CommandHandlers] Error sending error message: %v", sendErr)
+			logutils.Error("HandleTopicsCommand: SendErrorMessageError", sendErr, "chatID", update.Message.Chat.Id)
 		}
 		return err
 	}
@@ -71,7 +76,7 @@ func (ch *CommandHandlers) HandleTopicsCommand(update *gotgbot.Update) error {
 	if len(topics) == 0 {
 		_, err = ch.MessageService.SendMessage(update.Message.Chat.Id, config.ErrorMessageNoTopics, &gotgbot.SendMessageOpts{})
 		if err != nil {
-			log.Printf("[CommandHandlers] Error sending no topics message: %v", err)
+			logutils.Error("HandleTopicsCommand: SendErrorMessageNoTopicsError", err, "chatID", update.Message.Chat.Id)
 			return err
 		}
 	} else {
@@ -83,18 +88,18 @@ func (ch *CommandHandlers) HandleTopicsCommand(update *gotgbot.Update) error {
 			ParseMode: "Markdown",
 		})
 		if err != nil {
-			log.Printf("[CommandHandlers] Error sending topics list: %v", err)
+			logutils.Error("HandleTopicsCommand: SendTopicsListError", err, "chatID", update.Message.Chat.Id)
 			return err
 		}
 	}
 
-	log.Printf("[CommandHandlers] Successfully handled /topics command: ChatID=%d", update.Message.Chat.Id)
+	logutils.Success("HandleTopicsCommand", "chatID", update.Message.Chat.Id)
 	return nil
 }
 
 // HandleAddTopicCommand handles the /addtopic command
 func (ch *CommandHandlers) HandleAddTopicCommand(update *gotgbot.Update) error {
-	log.Printf("[CommandHandlers] Handling /addtopic command: ChatID=%d", update.Message.Chat.Id)
+	logutils.Info("HandleAddTopicCommand", "chatID", update.Message.Chat.Id)
 
 	keyboard := &gotgbot.InlineKeyboardMarkup{
 		InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
@@ -106,17 +111,17 @@ func (ch *CommandHandlers) HandleAddTopicCommand(update *gotgbot.Update) error {
 		ReplyMarkup: *keyboard,
 	})
 	if err != nil {
-		log.Printf("[CommandHandlers] Error sending add topic menu: %v", err)
+		logutils.Error("HandleAddTopicCommand: SendMessageError", err, "chatID", update.Message.Chat.Id)
 		return err
 	}
 
-	log.Printf("[CommandHandlers] Successfully handled /addtopic command: ChatID=%d", update.Message.Chat.Id)
+	logutils.Success("HandleAddTopicCommand", "chatID", update.Message.Chat.Id)
 	return nil
 }
 
 // HandleBotMention handles when the bot is mentioned
 func (ch *CommandHandlers) HandleBotMention(update *gotgbot.Update) error {
-	log.Printf("[CommandHandlers] Handling bot mention: ChatID=%d", update.Message.Chat.Id)
+	logutils.Info("HandleBotMention", "chatID", update.Message.Chat.Id)
 
 	keyboard := &gotgbot.InlineKeyboardMarkup{
 		InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
@@ -130,11 +135,11 @@ func (ch *CommandHandlers) HandleBotMention(update *gotgbot.Update) error {
 		ReplyMarkup: *keyboard,
 	})
 	if err != nil {
-		log.Printf("[CommandHandlers] Error sending bot menu: %v", err)
+		logutils.Error("HandleBotMention: SendMessageError", err, "chatID", update.Message.Chat.Id)
 		return err
 	}
 
-	log.Printf("[CommandHandlers] Successfully handled bot mention: ChatID=%d", update.Message.Chat.Id)
+	logutils.Success("HandleBotMention", "chatID", update.Message.Chat.Id)
 	return nil
 }
 
@@ -142,4 +147,14 @@ func (ch *CommandHandlers) HandleBotMention(update *gotgbot.Update) error {
 func (ch *CommandHandlers) IsBotMention(messageText string) bool {
 	lowerText := strings.ToLower(messageText)
 	return strings.Contains(lowerText, config.BotUsername1) || strings.Contains(lowerText, config.BotUsername2)
+}
+
+func (ch *CommandHandlers) HandleNonGeneralTopicMessage(update *gotgbot.Update) error {
+	// Not implemented for command handlers
+	return nil
+}
+
+func (ch *CommandHandlers) HandleGeneralTopicMessage(update *gotgbot.Update) error {
+	// Not implemented for command handlers
+	return nil
 }

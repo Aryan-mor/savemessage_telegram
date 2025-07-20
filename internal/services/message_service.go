@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"save-message/internal/database"
+	"save-message/internal/interfaces"
+	"save-message/internal/logutils"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 )
@@ -17,20 +18,22 @@ import (
 // MessageService handles all message-related operations
 type MessageService struct {
 	BotToken string
-	db       *database.Database
+	db       database.DatabaseInterface
 }
 
 // NewMessageService creates a new message service
-func NewMessageService(botToken string, db *database.Database) *MessageService {
+func NewMessageService(botToken string, db database.DatabaseInterface) *MessageService {
 	return &MessageService{
 		BotToken: botToken,
 		db:       db,
 	}
 }
 
+var _ interfaces.MessageServiceInterface = (*MessageService)(nil)
+
 // DeleteMessage deletes a message from a chat
 func (ms *MessageService) DeleteMessage(chatID int64, messageID int) error {
-	log.Printf("[MessageService] Deleting message: ChatID=%d, MessageID=%d", chatID, messageID)
+	logutils.Info("DeleteMessage", "chatID", chatID, "messageID", messageID)
 
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/deleteMessage", ms.BotToken)
 
@@ -43,7 +46,7 @@ func (ms *MessageService) DeleteMessage(chatID int64, messageID int) error {
 
 	req, err := http.NewRequest("POST", url, strings.NewReader(string(bodyBytes)))
 	if err != nil {
-		log.Printf("[MessageService] Error creating delete request: %v", err)
+		logutils.Error("DeleteMessage: CreateRequest", err, "chatID", chatID)
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -51,7 +54,7 @@ func (ms *MessageService) DeleteMessage(chatID int64, messageID int) error {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("[MessageService] Error executing delete request: %v", err)
+		logutils.Error("DeleteMessage: ExecuteRequest", err, "chatID", chatID)
 		return err
 	}
 	defer resp.Body.Close()
@@ -63,23 +66,23 @@ func (ms *MessageService) DeleteMessage(chatID int64, messageID int) error {
 	}
 
 	if err := json.Unmarshal(body, &result); err != nil {
-		log.Printf("[MessageService] Error parsing delete response: %v", err)
+		logutils.Error("DeleteMessage: ParseResponse", err, "body", string(body))
 		return err
 	}
 
 	if !result.Ok {
-		log.Printf("[MessageService] Failed to delete message: %s", string(body))
-		return fmt.Errorf("failed to delete message: %s", string(body))
+		err := fmt.Errorf("failed to delete message: %s", string(body))
+		logutils.Warn("DeleteMessage: APIError", "error", err.Error())
+		return err
 	}
 
-	log.Printf("[MessageService] Successfully deleted message: ChatID=%d, MessageID=%d", chatID, messageID)
+	logutils.Success("DeleteMessage", "chatID", chatID, "messageID", messageID)
 	return nil
 }
 
 // CopyMessageToTopic copies a message to a specific topic
 func (ms *MessageService) CopyMessageToTopic(chatID int64, fromChatID int64, messageID int, messageThreadID int) error {
-	log.Printf("[MessageService] Copying message to topic: ChatID=%d, FromChatID=%d, MessageID=%d, ThreadID=%d",
-		chatID, fromChatID, messageID, messageThreadID)
+	logutils.Info("CopyMessageToTopic", "chatID", chatID, "fromChatID", fromChatID, "messageID", messageID, "messageThreadID", messageThreadID)
 
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/copyMessage", ms.BotToken)
 
@@ -94,7 +97,7 @@ func (ms *MessageService) CopyMessageToTopic(chatID int64, fromChatID int64, mes
 
 	req, err := http.NewRequest("POST", url, strings.NewReader(string(bodyBytes)))
 	if err != nil {
-		log.Printf("[MessageService] Error creating copy request: %v", err)
+		logutils.Error("CopyMessageToTopic: CreateRequest", err, "chatID", chatID)
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -102,7 +105,7 @@ func (ms *MessageService) CopyMessageToTopic(chatID int64, fromChatID int64, mes
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("[MessageService] Error executing copy request: %v", err)
+		logutils.Error("CopyMessageToTopic: ExecuteRequest", err, "chatID", chatID)
 		return err
 	}
 	defer resp.Body.Close()
@@ -114,24 +117,23 @@ func (ms *MessageService) CopyMessageToTopic(chatID int64, fromChatID int64, mes
 	}
 
 	if err := json.Unmarshal(body, &result); err != nil {
-		log.Printf("[MessageService] Error parsing copy response: %v", err)
+		logutils.Error("CopyMessageToTopic: ParseResponse", err, "body", string(body))
 		return err
 	}
 
 	if !result.Ok {
-		log.Printf("[MessageService] Failed to copy message: %s", string(body))
-		return fmt.Errorf("failed to copy message: %s", string(body))
+		err := fmt.Errorf("failed to copy message: %s", string(body))
+		logutils.Warn("CopyMessageToTopic: APIError", "error", err.Error())
+		return err
 	}
 
-	log.Printf("[MessageService] Successfully copied message to topic: ChatID=%d, MessageID=%d, ThreadID=%d",
-		chatID, messageID, messageThreadID)
+	logutils.Success("CopyMessageToTopic", "chatID", chatID, "messageID", messageID, "messageThreadID", messageThreadID)
 	return nil
 }
 
 // CopyMessageToTopicWithResult copies a message to a topic and returns the new message
 func (ms *MessageService) CopyMessageToTopicWithResult(chatID int64, fromChatID int64, messageID int, messageThreadID int) (*gotgbot.Message, error) {
-	log.Printf("[MessageService] Copying message to topic with result: ChatID=%d, FromChatID=%d, MessageID=%d, ThreadID=%d",
-		chatID, fromChatID, messageID, messageThreadID)
+	logutils.Info("CopyMessageToTopicWithResult", "chatID", chatID, "fromChatID", fromChatID, "messageID", messageID, "messageThreadID", messageThreadID)
 
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/copyMessage", ms.BotToken)
 
@@ -146,7 +148,7 @@ func (ms *MessageService) CopyMessageToTopicWithResult(chatID int64, fromChatID 
 
 	req, err := http.NewRequest("POST", url, strings.NewReader(string(bodyBytes)))
 	if err != nil {
-		log.Printf("[MessageService] Error creating copy request: %v", err)
+		logutils.Error("CopyMessageToTopicWithResult: CreateRequest", err, "chatID", chatID)
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -154,7 +156,7 @@ func (ms *MessageService) CopyMessageToTopicWithResult(chatID int64, fromChatID 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("[MessageService] Error executing copy request: %v", err)
+		logutils.Error("CopyMessageToTopicWithResult: ExecuteRequest", err, "chatID", chatID)
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -167,23 +169,23 @@ func (ms *MessageService) CopyMessageToTopicWithResult(chatID int64, fromChatID 
 	}
 
 	if err := json.Unmarshal(body, &result); err != nil {
-		log.Printf("[MessageService] Error parsing copy response: %v", err)
+		logutils.Error("CopyMessageToTopicWithResult: ParseResponse", err, "body", string(body))
 		return nil, err
 	}
 
 	if !result.Ok {
-		log.Printf("[MessageService] Failed to copy message: %s", string(body))
-		return nil, fmt.Errorf("failed to copy message: %s", string(body))
+		err := fmt.Errorf("failed to copy message: %s", string(body))
+		logutils.Warn("CopyMessageToTopicWithResult: APIError", "error", err.Error())
+		return nil, err
 	}
 
-	log.Printf("[MessageService] Successfully copied message to topic with result: ChatID=%d, MessageID=%d, ThreadID=%d",
-		chatID, result.Result.MessageId, messageThreadID)
+	logutils.Success("CopyMessageToTopicWithResult", "chatID", chatID, "messageID", messageID, "messageThreadID", messageThreadID)
 	return &result.Result, nil
 }
 
 // SendMessage sends a message to a chat
 func (ms *MessageService) SendMessage(chatID int64, text string, opts *gotgbot.SendMessageOpts) (*gotgbot.Message, error) {
-	log.Printf("[MessageService] Sending message: ChatID=%d, Text=%s", chatID, text)
+	logutils.Info("SendMessage", "chatID", chatID, "text", text)
 
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", ms.BotToken)
 
@@ -208,7 +210,7 @@ func (ms *MessageService) SendMessage(chatID int64, text string, opts *gotgbot.S
 
 	req, err := http.NewRequest("POST", url, strings.NewReader(string(bodyBytes)))
 	if err != nil {
-		log.Printf("[MessageService] Error creating send request: %v", err)
+		logutils.Error("SendMessage: CreateRequest", err, "chatID", chatID)
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -216,7 +218,7 @@ func (ms *MessageService) SendMessage(chatID int64, text string, opts *gotgbot.S
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("[MessageService] Error executing send request: %v", err)
+		logutils.Error("SendMessage: ExecuteRequest", err, "chatID", chatID)
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -229,22 +231,23 @@ func (ms *MessageService) SendMessage(chatID int64, text string, opts *gotgbot.S
 	}
 
 	if err := json.Unmarshal(body, &result); err != nil {
-		log.Printf("[MessageService] Error parsing send response: %v", err)
+		logutils.Error("SendMessage: ParseResponse", err, "body", string(body))
 		return nil, err
 	}
 
 	if !result.Ok {
-		log.Printf("[MessageService] Failed to send message: %s", string(body))
-		return nil, fmt.Errorf("failed to send message: %s", string(body))
+		err := fmt.Errorf("failed to send message: %s", string(body))
+		logutils.Warn("SendMessage: APIError", "error", err.Error())
+		return nil, err
 	}
 
-	log.Printf("[MessageService] Successfully sent message: ChatID=%d, MessageID=%d", chatID, result.Result.MessageId)
+	logutils.Success("SendMessage", "chatID", chatID, "messageID", result.Result.MessageId)
 	return &result.Result, nil
 }
 
 // EditMessageText edits a message's text
 func (ms *MessageService) EditMessageText(chatID int64, messageID int64, text string, opts *gotgbot.EditMessageTextOpts) (*gotgbot.Message, error) {
-	log.Printf("[MessageService] Editing message text: ChatID=%d, MessageID=%d, Text=%s", chatID, messageID, text)
+	logutils.Info("EditMessageText", "chatID", chatID, "messageID", messageID, "text", text)
 
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/editMessageText", ms.BotToken)
 
@@ -265,11 +268,11 @@ func (ms *MessageService) EditMessageText(chatID int64, messageID int64, text st
 	}
 
 	bodyBytes, _ := json.Marshal(requestBody)
-	log.Printf("[MessageService] Edit request body: %s", string(bodyBytes))
+	logutils.Info("EditMessageText: RequestBody", "body", string(bodyBytes))
 
 	req, err := http.NewRequest("POST", url, strings.NewReader(string(bodyBytes)))
 	if err != nil {
-		log.Printf("[MessageService] Error creating edit request: %v", err)
+		logutils.Error("EditMessageText: CreateRequest", err, "chatID", chatID)
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -277,13 +280,13 @@ func (ms *MessageService) EditMessageText(chatID int64, messageID int64, text st
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("[MessageService] Error executing edit request: %v", err)
+		logutils.Error("EditMessageText: ExecuteRequest", err, "chatID", chatID)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
-	log.Printf("[MessageService] Edit response: %s", string(body))
+	logutils.Info("EditMessageText: ResponseBody", "body", string(body))
 
 	var result struct {
 		Ok     bool            `json:"ok"`
@@ -291,22 +294,23 @@ func (ms *MessageService) EditMessageText(chatID int64, messageID int64, text st
 	}
 
 	if err := json.Unmarshal(body, &result); err != nil {
-		log.Printf("[MessageService] Error parsing edit response: %v", err)
+		logutils.Error("EditMessageText: ParseResponse", err, "body", string(body))
 		return nil, err
 	}
 
 	if !result.Ok {
-		log.Printf("[MessageService] Failed to edit message: %s", string(body))
-		return nil, fmt.Errorf("failed to edit message: %s", string(body))
+		err := fmt.Errorf("failed to edit message: %s", string(body))
+		logutils.Warn("EditMessageText: APIError", "error", err.Error())
+		return nil, err
 	}
 
-	log.Printf("[MessageService] Successfully edited message: ChatID=%d, MessageID=%d", chatID, messageID)
+	logutils.Success("EditMessageText", "chatID", chatID, "messageID", messageID)
 	return &result.Result, nil
 }
 
 // AnswerCallbackQuery answers a callback query
 func (ms *MessageService) AnswerCallbackQuery(callbackQueryID string, opts *gotgbot.AnswerCallbackQueryOpts) error {
-	log.Printf("[MessageService] Answering callback query: ID=%s", callbackQueryID)
+	logutils.Info("AnswerCallbackQuery", "callbackQueryID", callbackQueryID)
 
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/answerCallbackQuery", ms.BotToken)
 
@@ -327,7 +331,7 @@ func (ms *MessageService) AnswerCallbackQuery(callbackQueryID string, opts *gotg
 
 	req, err := http.NewRequest("POST", url, strings.NewReader(string(bodyBytes)))
 	if err != nil {
-		log.Printf("[MessageService] Error creating callback answer request: %v", err)
+		logutils.Error("AnswerCallbackQuery: CreateRequest", err, "callbackQueryID", callbackQueryID)
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -335,7 +339,7 @@ func (ms *MessageService) AnswerCallbackQuery(callbackQueryID string, opts *gotg
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("[MessageService] Error executing callback answer request: %v", err)
+		logutils.Error("AnswerCallbackQuery: ExecuteRequest", err, "callbackQueryID", callbackQueryID)
 		return err
 	}
 	defer resp.Body.Close()
@@ -347,15 +351,16 @@ func (ms *MessageService) AnswerCallbackQuery(callbackQueryID string, opts *gotg
 	}
 
 	if err := json.Unmarshal(body, &result); err != nil {
-		log.Printf("[MessageService] Error parsing callback answer response: %v", err)
+		logutils.Error("AnswerCallbackQuery: ParseResponse", err, "body", string(body))
 		return err
 	}
 
 	if !result.Ok {
-		log.Printf("[MessageService] Failed to answer callback query: %s", string(body))
-		return fmt.Errorf("failed to answer callback query: %s", string(body))
+		err := fmt.Errorf("failed to answer callback query: %s", string(body))
+		logutils.Warn("AnswerCallbackQuery: APIError", "error", err.Error())
+		return err
 	}
 
-	log.Printf("[MessageService] Successfully answered callback query: ID=%s", callbackQueryID)
+	logutils.Success("AnswerCallbackQuery", "callbackQueryID", callbackQueryID)
 	return nil
 }

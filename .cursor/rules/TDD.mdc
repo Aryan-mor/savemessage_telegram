@@ -1,0 +1,131 @@
+---
+description: Enforce Test-Driven Development (TDD) in this project — always write tests first
+globs: ["**/*.go"]
+alwaysApply: true
+---
+
+# 🧪 Test-Driven Development (TDD) Guidelines for SaveMessage Bot
+
+This rule enforces Test-Driven Development (TDD) as the standard workflow when developing new features.
+
+---
+
+## 🚦 What is TDD?
+
+**Test-Driven Development (TDD)** means:
+
+1. ✅ Write tests first (describe what the feature must do)  
+2. 🛠 Write the minimal code to pass the test  
+3. 🧹 Refactor with safety (the tests will catch regressions)
+
+This ensures:
+- Cleaner architecture
+- Safer feature changes
+- Fewer bugs and regressions
+
+---
+
+## 📋 TDD Workflow
+
+**For every new feature:**
+
+### ✅ Step 1: Write Tests
+- Use Go’s `testing` package
+- Mock external dependencies (Telegram bot, OpenAI, DB)
+- Add edge case + failure tests
+- Prefer table-driven test format
+
+### 🛠 Step 2: Implement the Code
+- Write just enough logic to make the tests pass
+- Keep functions focused and testable
+- Avoid unrelated logic during this phase
+
+### 🧪 Step 3: Run Tests
+```bash
+go test ./... -cover
+```
+
+Make sure:
+- All tests pass
+- Code coverage remains high (100% for new code ideally)
+
+---
+
+## 📂 Test Organization
+
+| Location                | Purpose                         |
+|-------------------------|----------------------------------|
+| `handlers/*_test.go`    | Test user interaction flows      |
+| `services/*_test.go`    | Test logic and DB integration    |
+| `internal/ai/*_test.go` | Test AI response formatting      |
+| `internal/mocks/`       | Mock interfaces and dependencies |
+
+---
+
+## 🔧 Use Interfaces for Service Layer
+
+To enable mock-based testing:
+- Define service interfaces like `MessageService`, `TopicService`, `AIService`, etc.
+- Inject interfaces into handlers
+- Keep concrete logic in `services/`, mocks in `internal/mocks/`
+
+### Example Interface:
+```go
+type MessageService interface {
+    CopyMessage(...)
+    DeleteMessage(...)
+    EditMessage(...)
+}
+```
+
+---
+
+## 📝 Example Workflow
+
+Suppose you're adding a feature like "Edit saved message":
+
+1. ✅ Write the test:
+```go
+func TestHandleEditRequest_ShouldUpdateMessage(t *testing.T) {
+    // mock message, bot, and services
+    // simulate edit message payload
+    // assert message was updated correctly
+}
+```
+
+2. 🛠 Write the code:
+```go
+func (h *MessageHandler) HandleEditRequest(...) {
+    ...
+}
+```
+
+3. 🧪 Run the test suite:
+```bash
+go test ./... -v -cover
+```
+
+---
+
+## ✅ Rule of Thumb
+
+| Do this...                        | To ensure...                          |
+|----------------------------------|----------------------------------------|
+| 🧪 Write the test before the code | Feature is scoped and testable         |
+| 🧩 Mock dependencies              | Tests run fast and isolated            |
+| 💯 Target 100% coverage for new code | Safer refactoring and future changes |
+| 🔁 Run tests before every commit  | Avoid broken builds                    |
+
+---
+
+## 💬 Questions?
+
+If you're unsure how to write tests, mock a service, or structure test cases, ask the team or refer to examples in:
+- `handlers/*_test.go`
+- `services/*_test.go`
+- `internal/mocks/`
+
+---
+
+Happy testing! 💪  
+– SaveMessage Bot Team

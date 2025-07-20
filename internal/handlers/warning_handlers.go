@@ -1,24 +1,28 @@
 package handlers
 
 import (
-	"log"
 	"strconv"
 	"strings"
 	"time"
 
 	"save-message/internal/config"
-	"save-message/internal/services"
+	"save-message/internal/interfaces"
+	"save-message/internal/logutils"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 )
 
 // WarningHandlers handles warning messages and non-General topic interactions
 type WarningHandlers struct {
-	messageService *services.MessageService
+	messageService interfaces.MessageServiceInterface
+
+	// Mockable funcs for testing
+	HandleNonGeneralTopicMessageFunc func(update *gotgbot.Update) error
+	HandleWarningOkCallbackFunc      func(update *gotgbot.Update) error
 }
 
 // NewWarningHandlers creates a new warning handlers instance
-func NewWarningHandlers(messageService *services.MessageService) *WarningHandlers {
+func NewWarningHandlers(messageService interfaces.MessageServiceInterface) *WarningHandlers {
 	return &WarningHandlers{
 		messageService: messageService,
 	}
@@ -26,15 +30,17 @@ func NewWarningHandlers(messageService *services.MessageService) *WarningHandler
 
 // HandleNonGeneralTopicMessage handles messages sent in non-General topics
 func (wh *WarningHandlers) HandleNonGeneralTopicMessage(update *gotgbot.Update) error {
-	log.Printf("[WarningHandlers] Handling non-General topic message: ChatID=%d, ThreadID=%d, MessageID=%d",
-		update.Message.Chat.Id, update.Message.MessageThreadId, update.Message.MessageId)
+	if wh.HandleNonGeneralTopicMessageFunc != nil {
+		return wh.HandleNonGeneralTopicMessageFunc(update)
+	}
+	logutils.Warn("HandleNonGeneralTopicMessage", "chatID", update.Message.Chat.Id, "threadID", update.Message.MessageThreadId, "messageID", update.Message.MessageId)
 
 	// Delete the user's message immediately
 	err := wh.messageService.DeleteMessage(update.Message.Chat.Id, int(update.Message.MessageId))
 	if err != nil {
-		log.Printf("[WarningHandlers] Error deleting message from non-General topic: %v", err)
+		logutils.Error("HandleNonGeneralTopicMessage: DeleteMessageError", err, "chatID", update.Message.Chat.Id, "messageID", update.Message.MessageId)
 	} else {
-		log.Printf("[WarningHandlers] Successfully deleted message from non-General topic: MessageID=%d", update.Message.MessageId)
+		logutils.Success("HandleNonGeneralTopicMessage", "chatID", update.Message.Chat.Id, "messageID", update.Message.MessageId)
 	}
 
 	// Send warning message with "Ok" button
@@ -54,42 +60,45 @@ func (wh *WarningHandlers) HandleNonGeneralTopicMessage(update *gotgbot.Update) 
 		})
 
 	if err != nil {
-		log.Printf("[WarningHandlers] Error sending warning message: %v", err)
+		logutils.Error("HandleNonGeneralTopicMessage: SendMessageError", err, "chatID", update.Message.Chat.Id, "messageID", update.Message.MessageId)
 		return err
 	}
 
-	log.Printf("[WarningHandlers] Successfully sent warning message: MessageID=%d", warningMsg.MessageId)
+	logutils.Success("HandleNonGeneralTopicMessage", "chatID", update.Message.Chat.Id, "messageID", warningMsg.MessageId)
 
 	// Auto-delete warning message after 1 minute
-	go func(botToken string, chatID int64, messageID int64, threadID int64) {
+	go func(chatID int64, messageID int64, threadID int64) {
 		time.Sleep(config.DefaultWarningAutoDeleteDelay)
 		err := wh.messageService.DeleteMessage(chatID, int(messageID))
 		if err != nil {
-			log.Printf("[WarningHandlers] Error auto-deleting warning message: %v", err)
+			logutils.Error("HandleNonGeneralTopicMessage: AutoDeleteMessageError", err, "chatID", chatID, "messageID", messageID)
 		} else {
-			log.Printf("[WarningHandlers] Successfully auto-deleted warning message: MessageID=%d", messageID)
+			logutils.Success("HandleNonGeneralTopicMessage", "chatID", chatID, "messageID", messageID)
 		}
-	}(wh.messageService.BotToken, update.Message.Chat.Id, warningMsg.MessageId, update.Message.MessageThreadId)
+	}(update.Message.Chat.Id, warningMsg.MessageId, update.Message.MessageThreadId)
 
 	return nil
 }
 
 // HandleWarningOkCallback handles the "Ok" button for warning messages
 func (wh *WarningHandlers) HandleWarningOkCallback(update *gotgbot.Update) error {
-	log.Printf("[WarningHandlers] Handling warning OK callback: %s", update.CallbackQuery.Data)
+	if wh.HandleWarningOkCallbackFunc != nil {
+		return wh.HandleWarningOkCallbackFunc(update)
+	}
+	logutils.Warn("HandleWarningOkCallback", "callbackData", update.CallbackQuery.Data)
 
 	// Delete the warning message itself (the message that contains the "Ok" button)
 	err := wh.messageService.DeleteMessage(update.CallbackQuery.Message.Chat.Id, int(update.CallbackQuery.Message.MessageId))
 	if err != nil {
-		log.Printf("[WarningHandlers] Error deleting warning message: %v", err)
+		logutils.Error("HandleWarningOkCallback: DeleteMessageError", err, "chatID", update.CallbackQuery.Message.Chat.Id, "messageID", update.CallbackQuery.Message.MessageId)
 	} else {
-		log.Printf("[WarningHandlers] Successfully deleted warning message: MessageID=%d", update.CallbackQuery.Message.MessageId)
+		logutils.Success("HandleWarningOkCallback", "chatID", update.CallbackQuery.Message.Chat.Id, "messageID", update.CallbackQuery.Message.MessageId)
 	}
 
 	return nil
 }
 
-// IsWarningCallback checks if the callback is a warning OK callback
+// IsWarningCallback checks if a callback is a warning confirmation.
 func (wh *WarningHandlers) IsWarningCallback(callbackData string) bool {
 	return strings.HasPrefix(callbackData, config.CallbackPrefixDetectMessageOnOtherTopic)
 }

@@ -2,28 +2,33 @@ package handlers
 
 import (
 	"context"
-	"log"
 	"strconv"
 	"strings"
 
 	"save-message/internal/config"
-	"save-message/internal/services"
+	"save-message/internal/interfaces"
+	"save-message/internal/logutils"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 )
 
 // AIHandlers handles AI-related operations and suggestions
 type AIHandlers struct {
-	messageService       *services.MessageService
-	topicService         *services.TopicService
-	aiService            *services.AIService
+	messageService       interfaces.MessageServiceInterface
+	topicService         interfaces.TopicServiceInterface
+	aiService            interfaces.AIServiceInterface
 	messageStore         map[string]*gotgbot.Message
 	keyboardMessageStore map[string]int
 	keyboardBuilder      *KeyboardBuilder
+
+	// Mockable funcs for testing
+	HandleGeneralTopicMessageFunc       func(update *gotgbot.Update) error
+	HandleRetryCallbackFunc             func(update *gotgbot.Update, originalMsg *gotgbot.Message) error
+	HandleBackToSuggestionsCallbackFunc func(update *gotgbot.Update, originalMsg *gotgbot.Message) error
 }
 
 // NewAIHandlers creates a new AI handlers instance
-func NewAIHandlers(messageService *services.MessageService, topicService *services.TopicService, aiService *services.AIService) *AIHandlers {
+func NewAIHandlers(messageService interfaces.MessageServiceInterface, topicService interfaces.TopicServiceInterface, aiService interfaces.AIServiceInterface) *AIHandlers {
 	return &AIHandlers{
 		messageService:       messageService,
 		topicService:         topicService,
@@ -36,14 +41,17 @@ func NewAIHandlers(messageService *services.MessageService, topicService *servic
 
 // HandleGeneralTopicMessage handles messages in General topic with AI suggestions
 func (ah *AIHandlers) HandleGeneralTopicMessage(update *gotgbot.Update) error {
-	log.Printf("[AIHandlers] Handling General topic message: ChatID=%d, MessageID=%d", update.Message.Chat.Id, update.Message.MessageId)
+	if ah.HandleGeneralTopicMessageFunc != nil {
+		return ah.HandleGeneralTopicMessageFunc(update)
+	}
+	logutils.Info("HandleGeneralTopicMessage", "chatID", update.Message.Chat.Id, "messageID", update.Message.MessageId)
 
 	// Send waiting message
 	waitingMsg, err := ah.messageService.SendMessage(update.Message.Chat.Id, config.AIProcessingMessage, &gotgbot.SendMessageOpts{
 		MessageThreadId: update.Message.MessageThreadId,
 	})
 	if err != nil {
-		log.Printf("[AIHandlers] Error sending waiting message: %v", err)
+		logutils.Error("HandleGeneralTopicMessage: SendMessageError", err, "chatID", update.Message.Chat.Id)
 		return err
 	}
 
@@ -56,7 +64,7 @@ func (ah *AIHandlers) HandleGeneralTopicMessage(update *gotgbot.Update) error {
 		// Get existing topics
 		topics, err := ah.topicService.GetForumTopics(msg.Chat.Id)
 		if err != nil {
-			log.Printf("[AIHandlers] Error getting topics: %v", err)
+			logutils.Error("HandleGeneralTopicMessage: GetForumTopicsError", err, "chatID", msg.Chat.Id)
 			ah.handleAIError(msg, waitingMsg)
 			return
 		}
@@ -65,17 +73,17 @@ func (ah *AIHandlers) HandleGeneralTopicMessage(update *gotgbot.Update) error {
 		ctx := context.Background()
 		suggestions, err := ah.aiService.SuggestFolders(ctx, msg.Text, ah.getTopicNames(topics))
 		if err != nil {
-			log.Printf("[AIHandlers] Error getting AI suggestions: %v", err)
+			logutils.Error("HandleGeneralTopicMessage: SuggestFoldersError", err, "chatID", msg.Chat.Id)
 			ah.handleAIError(msg, waitingMsg)
 			return
 		}
 
-		log.Printf("[AIHandlers] AI suggestions: %v", suggestions)
+		logutils.Info("HandleGeneralTopicMessage: AI suggestions", "suggestions", suggestions)
 
 		// Build keyboard
 		keyboard, err := ah.keyboardBuilder.BuildSuggestionKeyboard(msg, suggestions, topics)
 		if err != nil {
-			log.Printf("[AIHandlers] Error building suggestion keyboard: %v", err)
+			logutils.Error("HandleGeneralTopicMessage: BuildSuggestionKeyboardError", err, "chatID", msg.Chat.Id)
 			ah.handleAIError(msg, waitingMsg)
 			return
 		}
@@ -84,16 +92,16 @@ func (ah *AIHandlers) HandleGeneralTopicMessage(update *gotgbot.Update) error {
 		ah.storeMessageReferences(msg, suggestions, topics)
 
 		// Update the waiting message with suggestions
-		log.Printf("[AIHandlers] Updating waiting message: ChatID=%d, MessageID=%d, Text='%s'", msg.Chat.Id, waitingMsg.MessageId, config.ChooseFolderMessage)
+		logutils.Info("HandleGeneralTopicMessage: Updating waiting message", "chatID", msg.Chat.Id, "messageID", waitingMsg.MessageId, "text", config.ChooseFolderMessage)
 		_, err = ah.messageService.EditMessageText(msg.Chat.Id, int64(waitingMsg.MessageId), config.ChooseFolderMessage, &gotgbot.EditMessageTextOpts{
 			ReplyMarkup: *keyboard,
 		})
 		if err != nil {
-			log.Printf("[AIHandlers] Error updating message with suggestions: %v", err)
+			logutils.Error("HandleGeneralTopicMessage: EditMessageTextError", err, "chatID", msg.Chat.Id, "messageID", waitingMsg.MessageId)
 			// If update fails, try to find the message by searching through all stored keyboard messages
 			ah.tryUpdateExistingMessage(msg, keyboard)
 		} else {
-			log.Printf("[AIHandlers] Successfully updated waiting message with keyboard")
+			logutils.Success("HandleGeneralTopicMessage: Successfully updated waiting message with keyboard", "chatID", msg.Chat.Id)
 			// Store keyboard message ID for all suggestion buttons
 			ah.storeKeyboardMessageIDs(msg, suggestions, topics, int(waitingMsg.MessageId))
 		}
@@ -104,33 +112,39 @@ func (ah *AIHandlers) HandleGeneralTopicMessage(update *gotgbot.Update) error {
 
 // HandleRetryCallback handles retry button clicks
 func (ah *AIHandlers) HandleRetryCallback(update *gotgbot.Update, originalMsg *gotgbot.Message) error {
-	log.Printf("[AIHandlers] Handling retry callback: ChatID=%d", originalMsg.Chat.Id)
+	if ah.HandleRetryCallbackFunc != nil {
+		return ah.HandleRetryCallbackFunc(update, originalMsg)
+	}
+	logutils.Info("HandleRetryCallback", "chatID", originalMsg.Chat.Id)
 
 	_, err := ah.messageService.SendMessage(originalMsg.Chat.Id, config.SuccessMessageRetry, &gotgbot.SendMessageOpts{
 		MessageThreadId: originalMsg.MessageThreadId,
 	})
 	if err != nil {
-		log.Printf("[AIHandlers] Error sending retry message: %v", err)
+		logutils.Error("HandleRetryCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
 		return err
 	}
 
-	log.Printf("[AIHandlers] Successfully handled retry callback: ChatID=%d", originalMsg.Chat.Id)
+	logutils.Success("HandleRetryCallback", "chatID", originalMsg.Chat.Id)
 	return nil
 }
 
 // HandleBackToSuggestionsCallback handles back to suggestions button
 func (ah *AIHandlers) HandleBackToSuggestionsCallback(update *gotgbot.Update, originalMsg *gotgbot.Message) error {
-	log.Printf("[AIHandlers] Handling back to suggestions callback: ChatID=%d", originalMsg.Chat.Id)
+	if ah.HandleBackToSuggestionsCallbackFunc != nil {
+		return ah.HandleBackToSuggestionsCallbackFunc(update, originalMsg)
+	}
+	logutils.Info("HandleBackToSuggestionsCallback", "chatID", originalMsg.Chat.Id)
 
 	// Get existing topics
 	topics, err := ah.topicService.GetForumTopics(originalMsg.Chat.Id)
 	if err != nil {
-		log.Printf("[AIHandlers] Error getting topics: %v", err)
+		logutils.Error("HandleBackToSuggestionsCallback: GetForumTopicsError", err, "chatID", originalMsg.Chat.Id)
 		_, sendErr := ah.messageService.SendMessage(originalMsg.Chat.Id, config.ErrorMessageFailed, &gotgbot.SendMessageOpts{
 			MessageThreadId: originalMsg.MessageThreadId,
 		})
 		if sendErr != nil {
-			log.Printf("[AIHandlers] Error sending error message: %v", sendErr)
+			logutils.Error("HandleBackToSuggestionsCallback: SendMessageError", sendErr, "chatID", originalMsg.Chat.Id)
 		}
 		return err
 	}
@@ -139,7 +153,7 @@ func (ah *AIHandlers) HandleBackToSuggestionsCallback(update *gotgbot.Update, or
 	ctx := context.Background()
 	suggestions, err := ah.aiService.SuggestFolders(ctx, originalMsg.Text, ah.getTopicNames(topics))
 	if err != nil {
-		log.Printf("[AIHandlers] Error getting AI suggestions for back: %v", err)
+		logutils.Error("HandleBackToSuggestionsCallback: SuggestFoldersError", err, "chatID", originalMsg.Chat.Id)
 		ah.handleAIError(originalMsg, nil)
 		return err
 	}
@@ -147,7 +161,7 @@ func (ah *AIHandlers) HandleBackToSuggestionsCallback(update *gotgbot.Update, or
 	// Build keyboard
 	keyboard, err := ah.keyboardBuilder.BuildSuggestionKeyboard(originalMsg, suggestions, topics)
 	if err != nil {
-		log.Printf("[AIHandlers] Error building suggestion keyboard for back: %v", err)
+		logutils.Error("HandleBackToSuggestionsCallback: BuildSuggestionKeyboardError", err, "chatID", originalMsg.Chat.Id)
 		return err
 	}
 
@@ -161,14 +175,14 @@ func (ah *AIHandlers) HandleBackToSuggestionsCallback(update *gotgbot.Update, or
 			ReplyMarkup: *keyboard,
 		})
 		if err != nil {
-			log.Printf("[AIHandlers] Error updating message with suggestions for back: %v", err)
+			logutils.Error("HandleBackToSuggestionsCallback: EditMessageTextError", err, "chatID", originalMsg.Chat.Id, "messageID", keyboardMsgId)
 			// If update fails, send new message
 			newMsg, err := ah.messageService.SendMessage(originalMsg.Chat.Id, config.ChooseFolderMessage, &gotgbot.SendMessageOpts{
 				MessageThreadId: originalMsg.MessageThreadId,
 				ReplyMarkup:     *keyboard,
 			})
 			if err != nil {
-				log.Printf("[AIHandlers] Error sending new message with suggestions for back: %v", err)
+				logutils.Error("HandleBackToSuggestionsCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
 			} else {
 				ah.storeKeyboardMessageIDs(originalMsg, suggestions, topics, int(newMsg.MessageId))
 			}
@@ -182,18 +196,18 @@ func (ah *AIHandlers) HandleBackToSuggestionsCallback(update *gotgbot.Update, or
 			ReplyMarkup:     *keyboard,
 		})
 		if err != nil {
-			log.Printf("[AIHandlers] Error sending message with suggestions for back: %v", err)
+			logutils.Error("HandleBackToSuggestionsCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
 		} else {
 			ah.storeKeyboardMessageIDs(originalMsg, suggestions, topics, int(newMsg.MessageId))
 		}
 	}
 
-	log.Printf("[AIHandlers] Successfully handled back to suggestions callback: ChatID=%d", originalMsg.Chat.Id)
+	logutils.Success("HandleBackToSuggestionsCallback", "chatID", originalMsg.Chat.Id)
 	return nil
 }
 
 // Helper methods
-func (ah *AIHandlers) getTopicNames(topics []services.ForumTopic) []string {
+func (ah *AIHandlers) getTopicNames(topics []interfaces.ForumTopic) []string {
 	var names []string
 	for _, topic := range topics {
 		names = append(names, topic.Name)
@@ -213,12 +227,12 @@ func (ah *AIHandlers) handleAIError(msg *gotgbot.Message, waitingMsg *gotgbot.Me
 			ReplyMarkup: *retryKeyboard,
 		})
 		if err != nil {
-			log.Printf("[AIHandlers] Error updating waiting message: %v", err)
+			logutils.Error("handleAIError: EditMessageTextError", err, "chatID", msg.Chat.Id, "messageID", waitingMsg.MessageId)
 		}
 	}
 }
 
-func (ah *AIHandlers) storeMessageReferences(msg *gotgbot.Message, suggestions []string, topics []services.ForumTopic) {
+func (ah *AIHandlers) storeMessageReferences(msg *gotgbot.Message, suggestions []string, topics []interfaces.ForumTopic) {
 	// Store for existing topics
 	for _, folder := range suggestions {
 		for _, topic := range topics {
@@ -252,7 +266,7 @@ func (ah *AIHandlers) storeMessageReferences(msg *gotgbot.Message, suggestions [
 	ah.messageStore[retryCallbackData] = msg
 }
 
-func (ah *AIHandlers) storeKeyboardMessageIDs(msg *gotgbot.Message, suggestions []string, topics []services.ForumTopic, keyboardMsgID int) {
+func (ah *AIHandlers) storeKeyboardMessageIDs(msg *gotgbot.Message, suggestions []string, topics []interfaces.ForumTopic, keyboardMsgID int) {
 	// Store for existing topics
 	for _, folder := range suggestions {
 		for _, topic := range topics {

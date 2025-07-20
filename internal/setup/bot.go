@@ -3,7 +3,9 @@ package setup
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"time"
 
 	"save-message/internal/database"
 	"save-message/internal/handlers"
@@ -69,29 +71,52 @@ func LoadConfig() (*BotConfig, error) {
 func InitializeBot(config *BotConfig) (*BotInstance, error) {
 	log.Printf("[Setup] Initializing bot components")
 
-	// Initialize database
+	bot, err := gotgbot.NewBot(config.BotToken, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create bot: %v", err)
+	}
+
 	db, err := database.NewDatabase(config.DBPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize database: %v", err)
 	}
 
-	// Initialize services
+	httpClient := &http.Client{Timeout: 15 * time.Second}
+
+	// Initialize services with the correct signatures
 	messageService := services.NewMessageService(config.BotToken, db)
-	topicService := services.NewTopicService(config.BotToken, db)
-	aiService := services.NewAIService(config.OpenAIKey)
+	topicService := services.NewTopicService(config.BotToken, db, httpClient)
+	aiService := services.NewAIService(config.OpenAIKey, httpClient)
 
-	// Initialize handlers
-	messageHandlers := handlers.NewMessageHandlers(messageService, topicService, aiService)
-	callbackHandlers := handlers.NewCallbackHandlers(messageService, topicService, aiService)
+	// Initialize handlers in the correct order
+	commandHandlers := handlers.NewCommandHandlers(messageService, topicService)
+	warningHandlers := handlers.NewWarningHandlers(messageService)
+	aiHandlers := handlers.NewAIHandlers(messageService, topicService, aiService)
+	topicHandlers := handlers.NewTopicHandlers(messageService, topicService)
 
-	// Initialize dispatcher
-	dispatcher := router.NewDispatcher(messageHandlers, callbackHandlers)
+	// This was the key: Inject the concrete handlers
+	callbackHandlers := handlers.NewCallbackHandlers(
+		messageService,
+		topicHandlers,
+		aiHandlers,
+		warningHandlers,
+	)
 
-	// Initialize bot
-	bot, err := gotgbot.NewBot(config.BotToken, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create bot: %v", err)
-	}
+	messageHandlers := handlers.NewMessageHandlers(
+		commandHandlers,
+		aiHandlers,
+		topicHandlers,
+		warningHandlers,
+		messageService,
+		bot.User.Username,
+	)
+
+	// Initialize the dispatcher, passing handlers and services (as interfaces).
+	dispatcher := router.NewDispatcher(
+		messageHandlers,
+		callbackHandlers,
+		messageService,
+	)
 
 	instance := &BotInstance{
 		Bot:              bot,

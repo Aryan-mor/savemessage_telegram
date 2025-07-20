@@ -7,20 +7,21 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
+
+	"save-message/internal/interfaces"
 )
 
-// OpenAIClient handles requests to the OpenAI API
+// OpenAIClient implements OpenAI API calls
 type OpenAIClient struct {
-	APIKey     string
-	HTTPClient *http.Client
+	apiKey     string
+	httpClient interfaces.HTTPClient
 }
 
-// NewOpenAIClient creates a new OpenAIClient
-func NewOpenAIClient(apiKey string) *OpenAIClient {
+// NewOpenAIClient creates a new OpenAI client
+func NewOpenAIClient(apiKey string, client interfaces.HTTPClient) *OpenAIClient {
 	return &OpenAIClient{
-		APIKey:     apiKey,
-		HTTPClient: &http.Client{Timeout: 15 * time.Second},
+		apiKey:     apiKey,
+		httpClient: client,
 	}
 }
 
@@ -37,16 +38,17 @@ func (c *OpenAIClient) SuggestFolders(ctx context.Context, message string, exist
 	}
 	bodyBytes, _ := json.Marshal(requestBody)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewReader(bodyBytes))
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(bodyBytes))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+c.APIKey)
-	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.HTTPClient.Do(req)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error sending request to OpenAI: %w", err)
 	}
 	defer resp.Body.Close()
 	respBody, _ := io.ReadAll(resp.Body)

@@ -1,36 +1,49 @@
 package router
 
 import (
-	"log"
 	"strings"
 
-	"save-message/internal/handlers"
+	"save-message/internal/config"
+	"save-message/internal/interfaces"
+	"save-message/internal/logutils"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 )
 
-// Dispatcher routes incoming updates to appropriate handlers
+// Dispatcher routes incoming updates to the appropriate handlers.
 type Dispatcher struct {
-	messageHandlers  *handlers.MessageHandlers
-	callbackHandlers *handlers.CallbackHandlers
+	MessageHandlers  interfaces.MessageHandlersInterface
+	CallbackHandlers interfaces.CallbackHandlersInterface
+	MessageService   interfaces.MessageServiceInterface
 }
 
-// NewDispatcher creates a new dispatcher
-func NewDispatcher(messageHandlers *handlers.MessageHandlers, callbackHandlers *handlers.CallbackHandlers) *Dispatcher {
+// NewDispatcher creates a new Dispatcher.
+func NewDispatcher(
+	mh interfaces.MessageHandlersInterface,
+	ch interfaces.CallbackHandlersInterface,
+	ms interfaces.MessageServiceInterface,
+) *Dispatcher {
 	return &Dispatcher{
-		messageHandlers:  messageHandlers,
-		callbackHandlers: callbackHandlers,
+		MessageHandlers:  mh,
+		CallbackHandlers: ch,
+		MessageService:   ms,
 	}
 }
 
 // HandleUpdate routes an update to the appropriate handler
 func (d *Dispatcher) HandleUpdate(update *gotgbot.Update) error {
-	log.Printf("[Dispatcher] Handling update: UpdateID=%d", update.UpdateId)
+	// Handle nil updates gracefully
+	if update == nil {
+		logutils.Info("HandleUpdate: Received nil update, ignoring")
+		return nil
+	}
+
+	logutils.Info("HandleUpdate", "updateID", update.UpdateId)
 
 	// Handle callback queries (button clicks)
 	if update.CallbackQuery != nil {
-		log.Printf("[Dispatcher] Routing to callback handler")
-		return d.callbackHandlers.HandleCallbackQuery(update)
+		logutils.Info("HandleUpdate: Routing to callback handler")
+		return d.CallbackHandlers.HandleCallbackQuery(update)
 	}
 
 	// Handle messages
@@ -38,58 +51,57 @@ func (d *Dispatcher) HandleUpdate(update *gotgbot.Update) error {
 		return d.handleMessage(update)
 	}
 
-	log.Printf("[Dispatcher] Unknown update type")
+	logutils.Warn("HandleUpdate: Unknown update type")
 	return nil
 }
 
 // handleMessage routes message updates to appropriate handlers
 func (d *Dispatcher) handleMessage(update *gotgbot.Update) error {
-	log.Printf("[Dispatcher] Handling message: ChatID=%d, MessageID=%d, ThreadID=%d",
-		update.Message.Chat.Id, update.Message.MessageId, update.Message.MessageThreadId)
+	logutils.Info("handleMessage", "chatID", update.Message.Chat.Id, "messageID", update.Message.MessageId, "threadID", update.Message.MessageThreadId)
 
 	// Check if this is a new chat member (bot just joined)
 	if update.Message.NewChatMembers != nil {
 		for _, member := range update.Message.NewChatMembers {
 			if member.Id == update.Message.From.Id { // Bot joined
-				log.Printf("[Dispatcher] Bot joined chat, sending welcome message")
-				return d.messageHandlers.HandleStartCommand(update)
+				logutils.Info("handleMessage: Bot joined chat, sending welcome message")
+				return d.MessageHandlers.HandleStartCommand(update)
 			}
 		}
 	}
 
 	// Check if message is NOT in General topic (thread 0) - only allow messages in General
 	if update.Message.MessageThreadId != 0 {
-		log.Printf("[Dispatcher] Message detected in non-General topic, routing to non-General handler")
-		return d.messageHandlers.HandleNonGeneralTopicMessage(update)
+		logutils.Info("handleMessage: Message detected in non-General topic, routing to non-General handler")
+		return d.MessageHandlers.HandleNonGeneralTopicMessage(update)
 	}
 
 	// Check if message was recently moved
-	if d.callbackHandlers.IsRecentlyMovedMessage(update.Message.MessageId) {
-		log.Printf("[Dispatcher] Skipping recently moved message: %d", update.Message.MessageId)
-		d.callbackHandlers.CleanupMovedMessage(update.Message.MessageId)
+	if d.CallbackHandlers.IsRecentlyMovedMessage(update.Message.MessageId) {
+		logutils.Info("handleMessage: Skipping recently moved message: %d", update.Message.MessageId)
+		d.CallbackHandlers.CleanupMovedMessage(update.Message.MessageId)
 		return nil
 	}
 
 	// Check if user is waiting to provide a topic name
-	if d.callbackHandlers.IsWaitingForTopicName(update.Message.From.Id) {
-		log.Printf("[Dispatcher] User is waiting for topic name, routing to topic name handler")
-		return d.callbackHandlers.HandleTopicNameEntry(update)
+	if d.CallbackHandlers.IsWaitingForTopicName(update.Message.From.Id) {
+		logutils.Info("handleMessage: User is waiting for topic name, routing to topic name handler")
+		return d.CallbackHandlers.HandleTopicNameEntry(update)
 	}
 
 	// Handle commands
 	switch update.Message.Text {
 	case "/start":
-		log.Printf("[Dispatcher] Routing to start command handler")
-		return d.messageHandlers.HandleStartCommand(update)
+		logutils.Info("handleMessage: Routing to start command handler")
+		return d.MessageHandlers.HandleStartCommand(update)
 	case "/help":
-		log.Printf("[Dispatcher] Routing to help command handler")
-		return d.messageHandlers.HandleHelpCommand(update)
+		logutils.Info("handleMessage: Routing to help command handler")
+		return d.MessageHandlers.HandleHelpCommand(update)
 	case "/topics":
-		log.Printf("[Dispatcher] Routing to topics command handler")
-		return d.messageHandlers.HandleTopicsCommand(update)
+		logutils.Info("handleMessage: Routing to topics command handler")
+		return d.MessageHandlers.HandleTopicsCommand(update)
 	case "/addtopic":
-		log.Printf("[Dispatcher] Routing to add topic command handler")
-		return d.messageHandlers.HandleAddTopicCommand(update)
+		logutils.Info("handleMessage: Routing to add topic command handler")
+		return d.MessageHandlers.HandleAddTopicCommand(update)
 	default:
 		// Handle regular messages (not commands)
 		return d.handleRegularMessage(update)
@@ -98,29 +110,28 @@ func (d *Dispatcher) handleMessage(update *gotgbot.Update) error {
 
 // handleRegularMessage handles regular (non-command) messages
 func (d *Dispatcher) handleRegularMessage(update *gotgbot.Update) error {
-	log.Printf("[Dispatcher] Handling regular message: ChatID=%d, MessageID=%d",
-		update.Message.Chat.Id, update.Message.MessageId)
+	logutils.Info("handleRegularMessage", "chatID", update.Message.Chat.Id, "messageID", update.Message.MessageId)
 
 	// Check if the message mentions the bot (handle both possible usernames)
 	messageText := strings.ToLower(update.Message.Text)
 	if update.Message.Text != "" && (strings.Contains(messageText, "@savemessagbot") || strings.Contains(messageText, "@savemessagebot")) {
-		log.Printf("[Dispatcher] Message mentions bot, routing to bot mention handler")
-		return d.messageHandlers.HandleBotMention(update)
+		logutils.Info("handleRegularMessage: Message mentions bot, routing to bot mention handler")
+		return d.MessageHandlers.HandleBotMention(update)
 	}
 
 	// Check if this is a forum chat
 	if update.Message.Chat.Type == "supergroup" {
-		log.Printf("[Dispatcher] Message in supergroup, routing to General topic handler")
-		return d.messageHandlers.HandleGeneralTopicMessage(update)
+		logutils.Info("handleRegularMessage: Message in supergroup, routing to General topic handler")
+		return d.MessageHandlers.HandleGeneralTopicMessage(update)
 	}
 
-	log.Printf("[Dispatcher] Message not in supergroup, skipping AI processing")
+	logutils.Info("handleRegularMessage: Message not in supergroup, skipping AI processing")
 	return nil
 }
 
 // IsEditRequest checks if the message is an edit request
 func (d *Dispatcher) IsEditRequest(update *gotgbot.Update) bool {
-	if update.Message == nil || update.Message.Text == "" {
+	if update == nil || update.Message == nil || update.Message.Text == "" {
 		return false
 	}
 	return strings.HasPrefix(update.Message.Text, "Edit:")
@@ -128,7 +139,7 @@ func (d *Dispatcher) IsEditRequest(update *gotgbot.Update) bool {
 
 // IsTopicSelection checks if the callback is a topic selection
 func (d *Dispatcher) IsTopicSelection(update *gotgbot.Update) bool {
-	if update.CallbackQuery == nil {
+	if update == nil || update.CallbackQuery == nil {
 		return false
 	}
 	callbackData := update.CallbackQuery.Data
@@ -145,36 +156,40 @@ func (d *Dispatcher) IsTopicSelection(update *gotgbot.Update) bool {
 
 // IsNewTopicPrompt checks if the user is waiting for a topic name
 func (d *Dispatcher) IsNewTopicPrompt(update *gotgbot.Update) bool {
-	if update.Message == nil {
+	if update == nil || update.Message == nil || d.CallbackHandlers == nil {
 		return false
 	}
-	return d.callbackHandlers.IsWaitingForTopicName(update.Message.From.Id)
+	return d.CallbackHandlers.IsWaitingForTopicName(update.Message.From.Id)
 }
 
 // IsMessageInGeneralTopic checks if the message is in the General topic
 func (d *Dispatcher) IsMessageInGeneralTopic(update *gotgbot.Update) bool {
-	if update.Message == nil {
+	if update == nil || update.Message == nil {
 		return false
 	}
 	return update.Message.MessageThreadId == 0 && update.Message.Chat.Type == "supergroup"
 }
 
-// SendUnknownActionNotice sends a notice for unknown actions
-func (d *Dispatcher) SendUnknownActionNotice(update *gotgbot.Update) error {
-	log.Printf("[Dispatcher] Unknown action, sending notice")
+func (d *Dispatcher) sendError(update *gotgbot.Update, err error) {
+	chatID := getChatID(update)
+	if chatID == 0 {
+		logutils.Error("sendError: Could not determine chat ID", err)
+		return
+	}
 
-	var chatID int64
+	logutils.Error("sendError: Sending error message to user", err, "chatID", chatID)
+	_, sendErr := d.MessageService.SendMessage(chatID, config.ErrorMessageFailed, nil)
+	if sendErr != nil {
+		logutils.Error("sendError: Failed to send error message", sendErr, "chatID", chatID)
+	}
+}
+
+func getChatID(update *gotgbot.Update) int64 {
 	if update.Message != nil {
-		chatID = update.Message.Chat.Id
-	} else if update.CallbackQuery != nil {
-		chatID = update.CallbackQuery.Message.Chat.Id
-	} else {
-		return nil
+		return update.Message.Chat.Id
 	}
-
-	_, err := d.messageHandlers.CommandHandlers.MessageService.SendMessage(chatID, "❓ Unknown action. Please try again.", nil)
-	if err != nil {
-		log.Printf("[Dispatcher] Error sending unknown action notice: %v", err)
+	if update.CallbackQuery != nil {
+		return update.CallbackQuery.Message.Chat.Id
 	}
-	return err
+	return 0
 }

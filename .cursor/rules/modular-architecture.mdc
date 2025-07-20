@@ -1,40 +1,52 @@
+---
+description: Enforce modular architecture, clean separation, and reusable logic for AI Telegram bot
+globs: ["**/*.go"]
+alwaysApply: true
+---
 
-# Modular AI Telegram Bot Architecture Rules
+# 🧱 Modular AI Telegram Bot Architecture Rules
+
+This rule enforces best practices for building scalable, testable, and clean modular architecture in the SaveMessage Telegram bot project.
+
+---
 
 ## ✅ 1. Functional Isolation
 
-Each key behavior should be implemented as a **dedicated function** with a single purpose:
+Each core behavior must be a **dedicated function** with a single responsibility:
 
-- `DeleteMessage(chatID, messageID)`  
-- `RequestTopicName(chatID, originalMessageID)`  
-- `CreateNewTopic(chatID, topicName)`  
-- `SuggestCategories(messageText) -> []string`  
-- `MoveMessageToTopic(originalMsgID, targetTopicID)`  
+- `DeleteMessage(chatID, messageID)`
+- `RequestTopicName(chatID, originalMessageID)`
+- `CreateNewTopic(chatID, topicName)`
+- `SuggestCategories(messageText) -> []string`
+- `MoveMessageToTopic(originalMsgID, targetTopicID)`
 - `SendEditPrompt(originalMsgID)`
 
-All these functions should be reusable, predictable, and independently testable.
+These functions should be:
+- Predictable
+- Testable
+- Reusable
+- Free of side-effects outside their domain
+
+---
 
 ## ✅ 2. Handler Separation by User Flow
 
-Create **separate handlers** for user paths such as:
+Each user journey must have its own **handler function**:
 
-- Selecting an existing folder from suggestions  
-  → `HandleExistingTopicSelection()`
+| User Action                              | Handler Function                   |
+|------------------------------------------|------------------------------------|
+| Select an existing folder                | `HandleExistingTopicSelection()`   |
+| Create new folder from AI suggestion     | `HandleNewTopicCreationRequest()`  |
+| Enter name for new folder                | `HandleNewTopicNameEntry()`        |
+| Edit a saved message                     | `HandleEditRequest()`              |
 
-- Choosing to create a new folder from AI suggestion  
-  → `HandleNewTopicCreationRequest()`
+This ensures logic remains traceable and modular.
 
-- Typing the topic name after being prompted  
-  → `HandleNewTopicNameEntry()`
-
-- Editing a message by sending `Edit:[ID] new text`  
-  → `HandleEditRequest()`
-
-This keeps business logic traceable, debuggable, and scalable.
+---
 
 ## ✅ 3. Command/Event Routing
 
-Set up a router or dispatcher to route incoming updates:
+Use a **central dispatcher** or router to route updates based on context:
 
 ```go
 func HandleUpdate(update tgbotapi.Update) {
@@ -53,21 +65,34 @@ func HandleUpdate(update tgbotapi.Update) {
 }
 ```
 
+This isolates behavior from parsing logic and avoids duplication.
+
+---
+
 ## ✅ 4. Architecture Goals
 
-- Respect clean architecture / separation of concerns
-- Use clear package boundaries: handlers/, services/, ai/, utils/
-- All messages, callbacks, and responses should go through a central dispatcher
-- All business logic should be inside small, focused services
-- No logic inside main.go except setup
+Maintain clean architectural principles:
+
+- All logic should live in one of: `handlers/`, `services/`, `ai/`, or `utils/`
+- `main.go` should only handle setup, wiring, and server start
+- Keep message-handling logic out of `main.go`
+- Centralize all routing and command parsing
+
+---
 
 ## 🧪 Additional Notes
 
-- Always use logging for every handler entry and exit
-- Future-proof the code for new interaction types (search, tagging, etc.)
-- No hard-coded text: use constants or i18n struct
-- No message or user data should be saved in storage (privacy-first)
-description:
-globs:
-alwaysApply: false
+- Always log handler **entry and exit**
+- Prepare services to be **mocked** for testing
+- Future-proof for features like:
+  - Search
+  - Tagging
+  - Reactions
+- Avoid hardcoded text — use constants or i18n
+- Respect user privacy:
+  - Do not store message content or personal data
+  - Only store minimal user metadata if needed (e.g., roles, pro status)
+
 ---
+
+🏁 Following these rules will ensure a modular, scalable, and robust bot architecture that’s AI-ready and privacy-first.

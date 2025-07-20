@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"save-message/internal/config"
-	"save-message/internal/services"
+	"save-message/internal/interfaces"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 )
@@ -19,7 +19,7 @@ func NewKeyboardBuilder() *KeyboardBuilder {
 }
 
 // BuildSuggestionKeyboard builds keyboard for AI suggestions
-func (kb *KeyboardBuilder) BuildSuggestionKeyboard(msg *gotgbot.Message, suggestions []string, topics []services.ForumTopic) (*gotgbot.InlineKeyboardMarkup, error) {
+func (kb *KeyboardBuilder) BuildSuggestionKeyboard(msg *gotgbot.Message, suggestions []string, topics []interfaces.ForumTopic) (*gotgbot.InlineKeyboardMarkup, error) {
 	var rows [][]gotgbot.InlineKeyboardButton
 
 	// Separate existing and new topics
@@ -89,7 +89,7 @@ func (kb *KeyboardBuilder) BuildSuggestionKeyboard(msg *gotgbot.Message, suggest
 }
 
 // BuildAllTopicsKeyboard builds keyboard for showing all topics
-func (kb *KeyboardBuilder) BuildAllTopicsKeyboard(originalMsg *gotgbot.Message, topics []services.ForumTopic) (*gotgbot.InlineKeyboardMarkup, error) {
+func (kb *KeyboardBuilder) BuildAllTopicsKeyboard(originalMsg *gotgbot.Message, topics []interfaces.ForumTopic) (*gotgbot.InlineKeyboardMarkup, error) {
 	var rows [][]gotgbot.InlineKeyboardButton
 
 	// Add all existing topics as buttons

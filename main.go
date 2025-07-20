@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -323,7 +325,20 @@ func main() {
 	}
 	log.Printf("Authorized on account %s", bot.User.Username)
 
-	openaiClient := ai.NewOpenAIClient(openaiKey)
+	// Initialize OpenAI client
+	openAIKey := os.Getenv("OPENAI_API_KEY")
+	if openAIKey == "" {
+		log.Fatalf("OPENAI_API_KEY not set")
+	}
+	aiClient := ai.NewOpenAIClient(openAIKey, &http.Client{Timeout: 15 * time.Second})
+
+	// Get bot info
+	_, err = bot.GetMe(nil)
+	if err != nil {
+		log.Fatalf("Failed to get bot info: %v", err)
+	}
+
+	// Start polling
 	var offset int64 = 0
 	for {
 		updates, err := bot.GetUpdates(&gotgbot.GetUpdatesOpts{
@@ -549,7 +564,7 @@ func main() {
 											}
 										}
 
-										suggestions, err := openaiClient.SuggestFolders(ctx, msg.Text, existingFolders)
+										suggestions, err := aiClient.SuggestFolders(ctx, msg.Text, existingFolders)
 										if err != nil {
 											log.Printf("OpenAI error: %v", err)
 											// Update waiting message with error and retry button
@@ -1066,7 +1081,7 @@ func main() {
 									}
 								}
 
-								suggestions, err := openaiClient.SuggestFolders(ctx, msg.Text, existingFolders)
+								suggestions, err := aiClient.SuggestFolders(ctx, msg.Text, existingFolders)
 								if err != nil {
 									log.Printf("OpenAI error: %v", err)
 									// Update waiting message with error and retry button

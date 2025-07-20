@@ -2,33 +2,38 @@ package services
 
 import (
 	"context"
-	"log"
+	"net/http"
 
 	"save-message/internal/ai"
+	"save-message/internal/interfaces"
+	"save-message/internal/logutils"
 )
 
-// AIService handles all AI-related operations
+// AIService handles AI-powered folder suggestions
 type AIService struct {
-	openaiClient *ai.OpenAIClient
+	openAIClient ai.OpenAIClientInterface
 }
 
 // NewAIService creates a new AI service
-func NewAIService(openaiKey string) *AIService {
+func NewAIService(openaiKey string, client interfaces.HTTPClient) *AIService {
+	if client == nil {
+		client = &http.Client{}
+	}
 	return &AIService{
-		openaiClient: ai.NewOpenAIClient(openaiKey),
+		openAIClient: ai.NewOpenAIClient(openaiKey, client),
 	}
 }
 
 // SuggestFolders suggests folders based on message content
 func (as *AIService) SuggestFolders(ctx context.Context, messageText string, existingFolders []string) ([]string, error) {
-	log.Printf("[AIService] Suggesting folders for message: %s", messageText)
+	logutils.Info("SuggestFolders", "messageText", messageText, "existingFolders", existingFolders)
 
-	suggestions, err := as.openaiClient.SuggestFolders(ctx, messageText, existingFolders)
+	suggestions, err := as.openAIClient.SuggestFolders(ctx, messageText, existingFolders)
 	if err != nil {
-		log.Printf("[AIService] Error getting AI suggestions: %v", err)
+		logutils.Error("SuggestFolders: OpenAIClientError", err, "messageText", messageText)
 		return nil, err
 	}
 
-	log.Printf("[AIService] AI suggestions: %v", suggestions)
+	logutils.Success("SuggestFolders", "suggestions_count", len(suggestions))
 	return suggestions, nil
 }

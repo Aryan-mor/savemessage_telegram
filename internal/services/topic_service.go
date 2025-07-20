@@ -4,45 +4,47 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"save-message/internal/database"
+	"save-message/internal/interfaces"
+	"save-message/internal/logutils"
 )
 
 // TopicService handles all topic-related operations
 type TopicService struct {
 	botToken string
-	db       *database.Database
-}
-
-// ForumTopic represents a Telegram forum topic
-type ForumTopic struct {
-	MessageThreadId int    `json:"message_thread_id"`
-	Name            string `json:"name"`
+	db       database.DatabaseInterface
+	client   interfaces.HTTPClient
 }
 
 // NewTopicService creates a new topic service
-func NewTopicService(botToken string, db *database.Database) *TopicService {
+func NewTopicService(botToken string, db database.DatabaseInterface, client interfaces.HTTPClient) *TopicService {
+	if client == nil {
+		client = &http.Client{Timeout: 10 * time.Second}
+	}
 	return &TopicService{
 		botToken: botToken,
 		db:       db,
+		client:   client,
 	}
 }
 
+var _ interfaces.TopicServiceInterface = (*TopicService)(nil)
+
 // GetForumTopics fetches all topics in a forum
-func (ts *TopicService) GetForumTopics(chatID int64) ([]ForumTopic, error) {
-	log.Printf("[TopicService] Getting forum topics: ChatID=%d", chatID)
+func (ts *TopicService) GetForumTopics(chatID int64) ([]interfaces.ForumTopic, error) {
+	logutils.Info("GetForumTopics", "chatID", chatID)
 
 	// First, check if this is a forum chat
 	chatURL := fmt.Sprintf("https://api.telegram.org/bot%s/getChat?chat_id=%d", ts.botToken, chatID)
-	chatResp, err := http.Get(chatURL)
+	chatResp, err := ts.client.Get(chatURL)
 	if err == nil {
 		defer chatResp.Body.Close()
 		chatBody, _ := io.ReadAll(chatResp.Body)
-		log.Printf("[TopicService] getChat response: %s", string(chatBody))
+		logutils.Debug("GetForumTopics", "getChat_response", string(chatBody))
 
 		var chatResult struct {
 			Ok     bool `json:"ok"`
@@ -53,8 +55,10 @@ func (ts *TopicService) GetForumTopics(chatID int64) ([]ForumTopic, error) {
 		}
 
 		if err := json.Unmarshal(chatBody, &chatResult); err == nil && chatResult.Ok {
-			log.Printf("[TopicService] Chat type: %s, Is forum: %v", chatResult.Result.Type, chatResult.Result.IsForum)
+			logutils.Debug("GetForumTopics", "chat_type", chatResult.Result.Type, "is_forum", chatResult.Result.IsForum)
 		}
+	} else {
+		logutils.Warn("GetForumTopics: GetChatFailed", "error", err.Error(), "chatID", chatID)
 	}
 
 	// Try different methods to get forum topics
@@ -65,19 +69,19 @@ func (ts *TopicService) GetForumTopics(chatID int64) ([]ForumTopic, error) {
 
 	for _, method := range methods {
 		url := fmt.Sprintf("https://api.telegram.org/bot%s/%s?chat_id=%d", ts.botToken, method, chatID)
-		resp, err := http.Get(url)
+		resp, err := ts.client.Get(url)
 		if err != nil {
 			continue
 		}
 		defer resp.Body.Close()
 
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("[TopicService] %s response: %s", method, string(body))
+		logutils.Debug("GetForumTopics", "method", method, "response", string(body))
 
 		var result struct {
 			Ok     bool `json:"ok"`
 			Result struct {
-				Topics []ForumTopic `json:"topics"`
+				Topics []interfaces.ForumTopic `json:"topics"`
 			} `json:"result"`
 		}
 
@@ -86,12 +90,12 @@ func (ts *TopicService) GetForumTopics(chatID int64) ([]ForumTopic, error) {
 		}
 
 		if result.Ok {
-			log.Printf("[TopicService] Successfully got topics using %s: %v", method, result.Result.Topics)
+			logutils.Success("GetForumTopics", "method", method, "topics_count", len(result.Result.Topics))
 			// Update database with found topics
 			for _, topic := range result.Result.Topics {
-				err := ts.db.AddTopic(chatID, topic.Name, int64(topic.MessageThreadId), 0) // 0 for system-created topics
+				err := ts.db.AddTopic(chatID, topic.Name, topic.ID, 0) // 0 for system-created topics
 				if err != nil {
-					log.Printf("[TopicService] Error adding topic to database: %v", err)
+					logutils.Error("GetForumTopics", err, "chatID", chatID, "topic_name", topic.Name)
 				}
 			}
 			return result.Result.Topics, nil
@@ -99,27 +103,27 @@ func (ts *TopicService) GetForumTopics(chatID int64) ([]ForumTopic, error) {
 	}
 
 	// If all methods fail, use database
-	log.Printf("[TopicService] All forum topic methods failed, using database")
+	logutils.Warn("GetForumTopics", "message", "All API methods failed, falling back to database", "chatID", chatID)
 	dbTopics, err := ts.db.GetTopicsByChat(chatID)
 	if err != nil {
-		log.Printf("[TopicService] Error getting topics from database: %v", err)
-		return []ForumTopic{}, nil
+		logutils.Error("GetForumTopics", err, "chatID", chatID)
+		return []interfaces.ForumTopic{}, nil
 	}
 
-	var topics []ForumTopic
+	var topics []interfaces.ForumTopic
 	for _, dbTopic := range dbTopics {
-		topics = append(topics, ForumTopic{
-			MessageThreadId: int(dbTopic.MessageThreadId), // Convert int64 to int for Telegram API
-			Name:            dbTopic.Name,
+		topics = append(topics, interfaces.ForumTopic{
+			ID:   dbTopic.MessageThreadId,
+			Name: dbTopic.Name,
 		})
 	}
-	log.Printf("[TopicService] Using database topics: %v", topics)
+	logutils.Success("GetForumTopics", "database_topics_count", len(topics), "chatID", chatID)
 	return topics, nil
 }
 
 // CreateForumTopic creates a new topic in a forum
-func (ts *TopicService) CreateForumTopic(chatID int64, name string) (*ForumTopic, error) {
-	log.Printf("[TopicService] Creating forum topic: ChatID=%d, Name=%s", chatID, name)
+func (ts *TopicService) CreateForumTopic(chatID int64, name string) (int64, error) {
+	logutils.Info("CreateForumTopic", "chatID", chatID, "name", name)
 
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/createForumTopic", ts.botToken)
 
@@ -132,86 +136,85 @@ func (ts *TopicService) CreateForumTopic(chatID int64, name string) (*ForumTopic
 
 	req, err := http.NewRequest("POST", url, strings.NewReader(string(bodyBytes)))
 	if err != nil {
-		log.Printf("[TopicService] Error creating forum topic request: %v", err)
-		return nil, err
+		logutils.Error("CreateForumTopic: CreateRequest", err, "chatID", chatID, "name", name)
+		return 0, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := ts.client
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("[TopicService] Error executing forum topic creation request: %v", err)
-		return nil, err
+		logutils.Error("CreateForumTopic", err, "chatID", chatID, "name", name)
+		return 0, err
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 
 	var result struct {
-		Ok     bool       `json:"ok"`
-		Result ForumTopic `json:"result"`
+		Ok     bool                  `json:"ok"`
+		Result interfaces.ForumTopic `json:"result"`
 	}
 
 	if err := json.Unmarshal(body, &result); err != nil {
-		log.Printf("[TopicService] Error parsing forum topic creation response: %v", err)
-		return nil, err
+		logutils.Error("CreateForumTopic", err, "response_body", string(body))
+		return 0, err
 	}
 
 	if !result.Ok {
-		log.Printf("[TopicService] Failed to create forum topic: %s", string(body))
-		return nil, fmt.Errorf("failed to create topic: %s", string(body))
+		logutils.Error("CreateForumTopic", fmt.Errorf("failed to create topic: %s", string(body)), "chatID", chatID, "name", name)
+		return 0, fmt.Errorf("failed to create topic: %s", string(body))
 	}
 
 	// Add topic to database
-	err = ts.db.AddTopic(chatID, name, int64(result.Result.MessageThreadId), 0) // 0 for system-created topics
+	err = ts.db.AddTopic(chatID, name, result.Result.ID, 0) // 0 for system-created topics
 	if err != nil {
-		log.Printf("[TopicService] Error adding topic to database: %v", err)
+		logutils.Error("CreateForumTopic", err, "chatID", chatID, "name", name, "threadID", result.Result.ID)
 	} else {
-		log.Printf("[TopicService] Added topic '%s' to database for chat %d", name, chatID)
+		logutils.Success("CreateForumTopic", "chatID", chatID, "name", name, "threadID", result.Result.ID)
 	}
 
-	log.Printf("[TopicService] Successfully created forum topic: Name=%s, ThreadID=%d", name, result.Result.MessageThreadId)
-	return &result.Result, nil
+	return result.Result.ID, nil
 }
 
 // TopicExists checks if a topic exists in the database
 func (ts *TopicService) TopicExists(chatID int64, topicName string) (bool, error) {
-	log.Printf("[TopicService] Checking if topic exists: ChatID=%d, Name=%s", chatID, topicName)
+	logutils.Info("TopicExists", "chatID", chatID, "topicName", topicName)
 
 	topics, err := ts.GetForumTopics(chatID)
 	if err != nil {
-		log.Printf("[TopicService] Error getting topics for existence check: %v", err)
+		logutils.Error("TopicExists", err, "chatID", chatID, "topicName", topicName)
 		return false, err
 	}
 
 	for _, topic := range topics {
 		if strings.EqualFold(topic.Name, topicName) {
-			log.Printf("[TopicService] Topic exists: %s", topicName)
+			logutils.Success("TopicExists", "topicName", topicName, "exists", true)
 			return true, nil
 		}
 	}
 
-	log.Printf("[TopicService] Topic does not exist: %s", topicName)
+	logutils.Success("TopicExists", "topicName", topicName, "exists", false)
 	return false, nil
 }
 
 // FindTopicByName finds a topic by name (case-insensitive)
-func (ts *TopicService) FindTopicByName(chatID int64, topicName string) (*ForumTopic, error) {
-	log.Printf("[TopicService] Finding topic by name: ChatID=%d, Name=%s", chatID, topicName)
+func (ts *TopicService) FindTopicByName(chatID int64, topicName string) (int64, error) {
+	logutils.Info("FindTopicByName", "chatID", chatID, "topicName", topicName)
 
 	topics, err := ts.GetForumTopics(chatID)
 	if err != nil {
-		log.Printf("[TopicService] Error getting topics for name search: %v", err)
-		return nil, err
+		logutils.Error("FindTopicByName", err, "chatID", chatID, "topicName", topicName)
+		return 0, err
 	}
 
 	for _, topic := range topics {
 		if strings.EqualFold(topic.Name, topicName) {
-			log.Printf("[TopicService] Found topic: %s (ThreadID=%d)", topic.Name, topic.MessageThreadId)
-			return &topic, nil
+			logutils.Success("FindTopicByName", "topicName", topicName, "threadID", topic.ID)
+			return topic.ID, nil
 		}
 	}
 
-	log.Printf("[TopicService] Topic not found: %s", topicName)
-	return nil, fmt.Errorf("topic not found: %s", topicName)
+	logutils.Warn("FindTopicByName", "message", "Topic not found", "topicName", topicName)
+	return 0, fmt.Errorf("topic not found: %s", topicName)
 }

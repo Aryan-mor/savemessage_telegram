@@ -1,33 +1,41 @@
 package handlers
 
 import (
-	"log"
 	"strconv"
 	"strings"
 	"time"
 
 	"save-message/internal/config"
-	"save-message/internal/services"
+	"save-message/internal/interfaces"
+	"save-message/internal/logutils"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 )
 
 // TopicHandlers handles topic-related operations and callbacks
 type TopicHandlers struct {
-	messageService        *services.MessageService
-	topicService          *services.TopicService
+	messageService        interfaces.MessageServiceInterface
+	topicService          interfaces.TopicServiceInterface
 	messageStore          map[string]*gotgbot.Message
 	keyboardMessageStore  map[string]int
 	WaitingForTopicName   map[int64]TopicCreationContext
 	originalMessageStore  map[int64]*gotgbot.Message
 	recentlyMovedMessages map[int64]bool
 	keyboardBuilder       *KeyboardBuilder
+
+	// Mockable funcs for testing
+	HandleNewTopicCreationRequestFunc   func(update *gotgbot.Update, originalMsg *gotgbot.Message) error
+	HandleTopicSelectionCallbackFunc    func(update *gotgbot.Update, originalMsg *gotgbot.Message, callbackData string) error
+	HandleShowAllTopicsCallbackFunc     func(update *gotgbot.Update, originalMsg *gotgbot.Message) error
+	HandleCreateTopicMenuCallbackFunc   func(update *gotgbot.Update, originalMsg *gotgbot.Message) error
+	HandleShowAllTopicsMenuCallbackFunc func(update *gotgbot.Update, originalMsg *gotgbot.Message) error
+	HandleTopicNameEntryFunc            func(update *gotgbot.Update) error
 }
 
 // TopicCreationContext is already defined in callback_handlers.go
 
 // NewTopicHandlers creates a new topic handlers instance
-func NewTopicHandlers(messageService *services.MessageService, topicService *services.TopicService) *TopicHandlers {
+func NewTopicHandlers(messageService interfaces.MessageServiceInterface, topicService interfaces.TopicServiceInterface) *TopicHandlers {
 	return &TopicHandlers{
 		messageService:        messageService,
 		topicService:          topicService,
@@ -42,14 +50,17 @@ func NewTopicHandlers(messageService *services.MessageService, topicService *ser
 
 // HandleNewTopicCreationRequest handles requests to create a new topic
 func (th *TopicHandlers) HandleNewTopicCreationRequest(update *gotgbot.Update, originalMsg *gotgbot.Message) error {
-	log.Printf("[TopicHandlers] Handling new topic creation request: ChatID=%d", originalMsg.Chat.Id)
+	if th.HandleNewTopicCreationRequestFunc != nil {
+		return th.HandleNewTopicCreationRequestFunc(update, originalMsg)
+	}
+	logutils.Info("HandleNewTopicCreationRequest", "chatID", originalMsg.Chat.Id)
 
 	// Ask user for topic name
 	_, err := th.messageService.SendMessage(originalMsg.Chat.Id, config.TopicNamePrompt, &gotgbot.SendMessageOpts{
 		MessageThreadId: originalMsg.MessageThreadId,
 	})
 	if err != nil {
-		log.Printf("[TopicHandlers] Error sending topic name prompt: %v", err)
+		logutils.Error("HandleNewTopicCreationRequest: SendMessageError", err, "chatID", originalMsg.Chat.Id)
 		return err
 	}
 
@@ -69,13 +80,16 @@ func (th *TopicHandlers) HandleNewTopicCreationRequest(update *gotgbot.Update, o
 		delete(th.keyboardMessageStore, update.CallbackQuery.Data)
 	}
 
-	log.Printf("[TopicHandlers] Successfully handled new topic creation request: ChatID=%d", originalMsg.Chat.Id)
+	logutils.Success("HandleNewTopicCreationRequest", "chatID", originalMsg.Chat.Id)
 	return nil
 }
 
 // HandleTopicNameEntry handles when user provides a topic name
 func (th *TopicHandlers) HandleTopicNameEntry(update *gotgbot.Update) error {
-	log.Printf("[TopicHandlers] Handling topic name entry: UserID=%d", update.Message.From.Id)
+	if th.HandleTopicNameEntryFunc != nil {
+		return th.HandleTopicNameEntryFunc(update)
+	}
+	logutils.Info("HandleTopicNameEntry", "userID", update.Message.From.Id)
 
 	ctx := th.WaitingForTopicName[update.Message.From.Id]
 	topicName := strings.TrimSpace(update.Message.Text)
@@ -83,7 +97,7 @@ func (th *TopicHandlers) HandleTopicNameEntry(update *gotgbot.Update) error {
 	if topicName == "" {
 		_, err := th.messageService.SendMessage(ctx.ChatId, config.TopicNameEmptyError, &gotgbot.SendMessageOpts{})
 		if err != nil {
-			log.Printf("[TopicHandlers] Error sending empty topic name error: %v", err)
+			logutils.Error("HandleTopicNameEntry: SendMessageError", err, "chatID", ctx.ChatId)
 		}
 		return nil
 	}
@@ -101,7 +115,7 @@ func (th *TopicHandlers) HandleTopicNameEntry(update *gotgbot.Update) error {
 		if exists {
 			_, err = th.messageService.SendMessage(ctx.ChatId, config.TopicNameExistsError, &gotgbot.SendMessageOpts{})
 			if err != nil {
-				log.Printf("[TopicHandlers] Error sending topic exists error: %v", err)
+				logutils.Error("HandleTopicNameEntry: SendMessageError", err, "chatID", ctx.ChatId)
 			}
 			th.cleanupTopicCreation(update.Message.From.Id)
 			return nil
@@ -109,32 +123,32 @@ func (th *TopicHandlers) HandleTopicNameEntry(update *gotgbot.Update) error {
 	}
 
 	// Create the topic
-	newTopic, err := th.topicService.CreateForumTopic(ctx.ChatId, topicName)
+	threadID, err := th.topicService.CreateForumTopic(ctx.ChatId, topicName)
 	if err != nil {
-		log.Printf("[TopicHandlers] Error creating topic: %v", err)
+		logutils.Error("HandleTopicNameEntry: CreateTopicError", err, "chatID", ctx.ChatId)
 		_, sendErr := th.messageService.SendMessage(ctx.ChatId, config.ErrorMessageCreateFailed, &gotgbot.SendMessageOpts{})
 		if sendErr != nil {
-			log.Printf("[TopicHandlers] Error sending create failed message: %v", sendErr)
+			logutils.Error("HandleTopicNameEntry: SendMessageError", sendErr, "chatID", ctx.ChatId)
 		}
 		th.cleanupTopicCreation(update.Message.From.Id)
 		return err
 	}
 
 	// Send topic name as first message in new topic
-	if newTopic != nil {
-		_, err := th.messageService.SendMessage(ctx.ChatId, newTopic.Name, &gotgbot.SendMessageOpts{
-			MessageThreadId: int64(newTopic.MessageThreadId),
+	if threadID != 0 {
+		_, err := th.messageService.SendMessage(ctx.ChatId, topicName, &gotgbot.SendMessageOpts{
+			MessageThreadId: threadID,
 		})
 		if err != nil {
-			log.Printf("[TopicHandlers] Error sending topic name as first message: %v", err)
+			logutils.Error("HandleTopicNameEntry: SendMessageError", err, "chatID", ctx.ChatId)
 		}
 	}
 
 	// Copy the original user message to the new topic
-	if origMsg, ok := th.originalMessageStore[update.Message.From.Id]; ok && newTopic != nil {
-		_, err := th.messageService.CopyMessageToTopicWithResult(ctx.ChatId, origMsg.Chat.Id, int(origMsg.MessageId), newTopic.MessageThreadId)
+	if origMsg, ok := th.originalMessageStore[update.Message.From.Id]; ok && threadID != 0 {
+		_, err := th.messageService.CopyMessageToTopicWithResult(ctx.ChatId, origMsg.Chat.Id, int(origMsg.MessageId), int(threadID))
 		if err != nil {
-			log.Printf("[TopicHandlers] Error copying message to new topic: %v", err)
+			logutils.Error("HandleTopicNameEntry: CopyMessageError", err, "chatID", ctx.ChatId)
 		} else {
 			// Build preview: first 2 lines of the original message
 			previewLines := strings.SplitN(origMsg.Text, "\n", 3)
@@ -145,21 +159,21 @@ func (th *TopicHandlers) HandleTopicNameEntry(update *gotgbot.Update) error {
 			if len(previewLines) > 1 {
 				preview += "\n\"" + previewLines[1] + "\""
 			}
-			confirmMsg := config.SuccessMessageSaved + newTopic.Name + preview
+			confirmMsg := config.SuccessMessageSaved + topicName + preview
 
 			// Send confirmation message to General
 			_, err = th.messageService.SendMessage(ctx.ChatId, confirmMsg, &gotgbot.SendMessageOpts{
 				MessageThreadId: 0,
 			})
 			if err != nil {
-				log.Printf("[TopicHandlers] Error sending confirmation message: %v", err)
+				logutils.Error("HandleTopicNameEntry: SendMessageError", err, "chatID", ctx.ChatId)
 			}
 
 			// Delete the original message from General after a short delay
-			go func(botToken string, chatID int64, messageID int) {
+			go func(chatID int64, messageID int) {
 				time.Sleep(config.DefaultMessageAutoDeleteDelay)
 				_ = th.messageService.DeleteMessage(chatID, messageID)
-			}(th.messageService.BotToken, origMsg.Chat.Id, int(origMsg.MessageId))
+			}(origMsg.Chat.Id, int(origMsg.MessageId))
 		}
 	}
 
@@ -170,39 +184,42 @@ func (th *TopicHandlers) HandleTopicNameEntry(update *gotgbot.Update) error {
 
 // HandleTopicSelectionCallback handles when user selects an existing topic
 func (th *TopicHandlers) HandleTopicSelectionCallback(update *gotgbot.Update, originalMsg *gotgbot.Message, callbackData string) error {
-	log.Printf("[TopicHandlers] Handling topic selection callback: %s", callbackData)
+	if th.HandleTopicSelectionCallbackFunc != nil {
+		return th.HandleTopicSelectionCallbackFunc(update, originalMsg, callbackData)
+	}
+	logutils.Info("HandleTopicSelectionCallback", "callbackData", callbackData)
 
 	// Extract topic name from callback data
 	parts := strings.Split(callbackData, "_")
 	if len(parts) < 2 {
-		log.Printf("[TopicHandlers] Invalid callback data format: %s", callbackData)
+		logutils.Warn("HandleTopicSelectionCallback: InvalidCallbackData", "callbackData", callbackData)
 		return nil
 	}
 
 	topicName := strings.Join(parts[:len(parts)-1], "_") // Rejoin in case topic name contains underscores
 
 	// Find the topic
-	topic, err := th.topicService.FindTopicByName(originalMsg.Chat.Id, topicName)
+	threadID, err := th.topicService.FindTopicByName(originalMsg.Chat.Id, topicName)
 	if err != nil {
-		log.Printf("[TopicHandlers] Error finding topic: %v", err)
+		logutils.Error("HandleTopicSelectionCallback: FindTopicError", err, "chatID", originalMsg.Chat.Id)
 		_, sendErr := th.messageService.SendMessage(originalMsg.Chat.Id, config.ErrorMessageNotFound, &gotgbot.SendMessageOpts{
 			MessageThreadId: originalMsg.MessageThreadId,
 		})
 		if sendErr != nil {
-			log.Printf("[TopicHandlers] Error sending not found message: %v", sendErr)
+			logutils.Error("HandleTopicSelectionCallback: SendMessageError", sendErr, "chatID", originalMsg.Chat.Id)
 		}
 		return err
 	}
 
 	// Copy message to the selected topic
-	_, err = th.messageService.CopyMessageToTopicWithResult(originalMsg.Chat.Id, originalMsg.Chat.Id, int(originalMsg.MessageId), topic.MessageThreadId)
+	_, err = th.messageService.CopyMessageToTopicWithResult(originalMsg.Chat.Id, originalMsg.Chat.Id, int(originalMsg.MessageId), int(threadID))
 	if err != nil {
-		log.Printf("[TopicHandlers] Error copying message to topic: %v", err)
+		logutils.Error("HandleTopicSelectionCallback: CopyMessageError", err, "chatID", originalMsg.Chat.Id)
 		_, sendErr := th.messageService.SendMessage(originalMsg.Chat.Id, "❌ Failed to save message to topic.", &gotgbot.SendMessageOpts{
 			MessageThreadId: originalMsg.MessageThreadId,
 		})
 		if sendErr != nil {
-			log.Printf("[TopicHandlers] Error sending copy failed message: %v", sendErr)
+			logutils.Error("HandleTopicSelectionCallback: SendMessageError", sendErr, "chatID", originalMsg.Chat.Id)
 		}
 		return err
 	}
@@ -219,39 +236,42 @@ func (th *TopicHandlers) HandleTopicSelectionCallback(update *gotgbot.Update, or
 	if len(previewLines) > 1 {
 		preview += "\n\"" + previewLines[1] + "\""
 	}
-	confirmMsg := config.SuccessMessageSaved + topic.Name + preview
+	confirmMsg := config.SuccessMessageSaved + topicName + preview
 
 	// Send confirmation message
 	_, err = th.messageService.SendMessage(originalMsg.Chat.Id, confirmMsg, &gotgbot.SendMessageOpts{
 		MessageThreadId: originalMsg.MessageThreadId,
 	})
 	if err != nil {
-		log.Printf("[TopicHandlers] Error sending confirmation message: %v", err)
+		logutils.Error("HandleTopicSelectionCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
 		return err
 	}
 
 	// Delete the original message after a short delay
-	go func(botToken string, chatID int64, messageID int) {
+	go func(chatID int64, messageID int) {
 		time.Sleep(config.DefaultMessageAutoDeleteDelay)
 		_ = th.messageService.DeleteMessage(chatID, messageID)
-	}(th.messageService.BotToken, originalMsg.Chat.Id, int(originalMsg.MessageId))
+	}(originalMsg.Chat.Id, int(originalMsg.MessageId))
 
-	log.Printf("[TopicHandlers] Successfully handled topic selection: Topic=%s", topic.Name)
+	logutils.Success("HandleTopicSelectionCallback", "topicName", topicName, "chatID", originalMsg.Chat.Id)
 	return nil
 }
 
 // HandleShowAllTopicsCallback handles showing all topics from suggestions
 func (th *TopicHandlers) HandleShowAllTopicsCallback(update *gotgbot.Update, originalMsg *gotgbot.Message) error {
-	log.Printf("[TopicHandlers] Handling show all topics callback: ChatID=%d", originalMsg.Chat.Id)
+	if th.HandleShowAllTopicsCallbackFunc != nil {
+		return th.HandleShowAllTopicsCallbackFunc(update, originalMsg)
+	}
+	logutils.Info("HandleShowAllTopicsCallback", "chatID", originalMsg.Chat.Id)
 
 	topics, err := th.topicService.GetForumTopics(originalMsg.Chat.Id)
 	if err != nil {
-		log.Printf("[TopicHandlers] Error getting topics: %v", err)
+		logutils.Error("HandleShowAllTopicsCallback: GetTopicsError", err, "chatID", originalMsg.Chat.Id)
 		_, sendErr := th.messageService.SendMessage(originalMsg.Chat.Id, config.ErrorMessageFailed, &gotgbot.SendMessageOpts{
 			MessageThreadId: originalMsg.MessageThreadId,
 		})
 		if sendErr != nil {
-			log.Printf("[TopicHandlers] Error sending error message: %v", sendErr)
+			logutils.Error("HandleShowAllTopicsCallback: SendMessageError", sendErr, "chatID", originalMsg.Chat.Id)
 		}
 		return err
 	}
@@ -261,14 +281,14 @@ func (th *TopicHandlers) HandleShowAllTopicsCallback(update *gotgbot.Update, ori
 			MessageThreadId: originalMsg.MessageThreadId,
 		})
 		if err != nil {
-			log.Printf("[TopicHandlers] Error sending no topics message: %v", err)
+			logutils.Error("HandleShowAllTopicsCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
 			return err
 		}
 	} else {
 		// Build keyboard with all existing topics
 		keyboard, err := th.keyboardBuilder.BuildAllTopicsKeyboard(originalMsg, topics)
 		if err != nil {
-			log.Printf("[TopicHandlers] Error building all topics keyboard: %v", err)
+			logutils.Error("HandleShowAllTopicsCallback: BuildKeyboardError", err, "chatID", originalMsg.Chat.Id)
 			return err
 		}
 
@@ -288,14 +308,14 @@ func (th *TopicHandlers) HandleShowAllTopicsCallback(update *gotgbot.Update, ori
 				ReplyMarkup: *keyboard,
 			})
 			if err != nil {
-				log.Printf("[TopicHandlers] Error updating message with all topics: %v", err)
+				logutils.Error("HandleShowAllTopicsCallback: EditMessageTextError", err, "chatID", originalMsg.Chat.Id)
 				// If update fails, send new message
 				newMsg, err := th.messageService.SendMessage(originalMsg.Chat.Id, config.ChooseFromAllTopicsMessage, &gotgbot.SendMessageOpts{
 					MessageThreadId: originalMsg.MessageThreadId,
 					ReplyMarkup:     *keyboard,
 				})
 				if err != nil {
-					log.Printf("[TopicHandlers] Error sending new message with all topics: %v", err)
+					logutils.Error("HandleShowAllTopicsCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
 				} else {
 					// Store keyboard message ID for all topic buttons
 					for _, topic := range topics {
@@ -319,7 +339,7 @@ func (th *TopicHandlers) HandleShowAllTopicsCallback(update *gotgbot.Update, ori
 				ReplyMarkup:     *keyboard,
 			})
 			if err != nil {
-				log.Printf("[TopicHandlers] Error sending message with all topics: %v", err)
+				logutils.Error("HandleShowAllTopicsCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
 			} else {
 				// Store keyboard message ID for all topic buttons
 				for _, topic := range topics {
@@ -331,19 +351,22 @@ func (th *TopicHandlers) HandleShowAllTopicsCallback(update *gotgbot.Update, ori
 		}
 	}
 
-	log.Printf("[TopicHandlers] Successfully handled show all topics callback: ChatID=%d", originalMsg.Chat.Id)
+	logutils.Success("HandleShowAllTopicsCallback", "chatID", originalMsg.Chat.Id)
 	return nil
 }
 
 // HandleCreateTopicMenuCallback handles the create topic menu callback
 func (th *TopicHandlers) HandleCreateTopicMenuCallback(update *gotgbot.Update, originalMsg *gotgbot.Message) error {
-	log.Printf("[TopicHandlers] Handling create topic menu callback: ChatID=%d", originalMsg.Chat.Id)
+	if th.HandleCreateTopicMenuCallbackFunc != nil {
+		return th.HandleCreateTopicMenuCallbackFunc(update, originalMsg)
+	}
+	logutils.Info("HandleCreateTopicMenuCallback", "chatID", originalMsg.Chat.Id)
 
 	_, err := th.messageService.SendMessage(originalMsg.Chat.Id, config.TopicCreationMenuMessage, &gotgbot.SendMessageOpts{
 		ParseMode: "Markdown",
 	})
 	if err != nil {
-		log.Printf("[TopicHandlers] Error sending topic creation menu: %v", err)
+		logutils.Error("HandleCreateTopicMenuCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
 		return err
 	}
 
@@ -354,20 +377,23 @@ func (th *TopicHandlers) HandleCreateTopicMenuCallback(update *gotgbot.Update, o
 		OriginalMsgId: int64(originalMsg.MessageId),
 	}
 
-	log.Printf("[TopicHandlers] Successfully handled create topic menu callback: ChatID=%d", originalMsg.Chat.Id)
+	logutils.Success("HandleCreateTopicMenuCallback", "chatID", originalMsg.Chat.Id)
 	return nil
 }
 
 // HandleShowAllTopicsMenuCallback handles the show all topics menu callback
 func (th *TopicHandlers) HandleShowAllTopicsMenuCallback(update *gotgbot.Update, originalMsg *gotgbot.Message) error {
-	log.Printf("[TopicHandlers] Handling show all topics menu callback: ChatID=%d", originalMsg.Chat.Id)
+	if th.HandleShowAllTopicsMenuCallbackFunc != nil {
+		return th.HandleShowAllTopicsMenuCallbackFunc(update, originalMsg)
+	}
+	logutils.Info("HandleShowAllTopicsMenuCallback", "chatID", originalMsg.Chat.Id)
 
 	topics, err := th.topicService.GetForumTopics(originalMsg.Chat.Id)
 	if err != nil {
-		log.Printf("[TopicHandlers] Error getting topics: %v", err)
+		logutils.Error("HandleShowAllTopicsMenuCallback: GetTopicsError", err, "chatID", originalMsg.Chat.Id)
 		_, sendErr := th.messageService.SendMessage(originalMsg.Chat.Id, config.ErrorMessageFailed, &gotgbot.SendMessageOpts{})
 		if sendErr != nil {
-			log.Printf("[TopicHandlers] Error sending error message: %v", sendErr)
+			logutils.Error("HandleShowAllTopicsMenuCallback: SendMessageError", sendErr, "chatID", originalMsg.Chat.Id)
 		}
 		return err
 	}
@@ -375,7 +401,7 @@ func (th *TopicHandlers) HandleShowAllTopicsMenuCallback(update *gotgbot.Update,
 	if len(topics) == 0 {
 		_, err = th.messageService.SendMessage(originalMsg.Chat.Id, config.ErrorMessageNoTopics, &gotgbot.SendMessageOpts{})
 		if err != nil {
-			log.Printf("[TopicHandlers] Error sending no topics message: %v", err)
+			logutils.Error("HandleShowAllTopicsMenuCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
 			return err
 		}
 	} else {
@@ -387,13 +413,24 @@ func (th *TopicHandlers) HandleShowAllTopicsMenuCallback(update *gotgbot.Update,
 			ParseMode: "Markdown",
 		})
 		if err != nil {
-			log.Printf("[TopicHandlers] Error sending topics list: %v", err)
+			logutils.Error("HandleShowAllTopicsMenuCallback: SendMessageError", err, "chatID", originalMsg.Chat.Id)
 			return err
 		}
 	}
 
-	log.Printf("[TopicHandlers] Successfully handled show all topics menu callback: ChatID=%d", originalMsg.Chat.Id)
+	logutils.Success("HandleShowAllTopicsMenuCallback", "chatID", originalMsg.Chat.Id)
 	return nil
+}
+
+// GetMessageByCallbackData retrieves the original message associated with a callback data.
+func (th *TopicHandlers) GetMessageByCallbackData(callbackData string) *gotgbot.Message {
+	return th.messageStore[callbackData]
+}
+
+// IsWaitingForTopicName checks if a user is in the process of creating a new topic.
+func (th *TopicHandlers) IsWaitingForTopicName(userID int64) bool {
+	_, exists := th.WaitingForTopicName[userID]
+	return exists
 }
 
 // Helper methods

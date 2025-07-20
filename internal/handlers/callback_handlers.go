@@ -1,21 +1,21 @@
 package handlers
 
 import (
-	"log"
 	"strings"
 
 	"save-message/internal/config"
-	"save-message/internal/services"
+	"save-message/internal/interfaces"
+	"save-message/internal/logutils"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 )
 
 // CallbackHandlers coordinates all callback-related interactions
 type CallbackHandlers struct {
-	topicHandlers   *TopicHandlers
-	warningHandlers *WarningHandlers
-	aiHandlers      *AIHandlers
-	messageService  *services.MessageService
+	TopicHandlers   interfaces.TopicHandlersInterface
+	WarningHandlers interfaces.WarningHandlersInterface
+	AIHandlers      interfaces.AIHandlersInterface
+	MessageService  interfaces.MessageServiceInterface
 }
 
 // TopicCreationContext stores context for topic creation
@@ -26,40 +26,57 @@ type TopicCreationContext struct {
 }
 
 // NewCallbackHandlers creates a new callback handlers instance
-func NewCallbackHandlers(messageService *services.MessageService, topicService *services.TopicService, aiService *services.AIService) *CallbackHandlers {
+func NewCallbackHandlers(
+	messageService interfaces.MessageServiceInterface,
+	topicHandlers interfaces.TopicHandlersInterface,
+	aiHandlers interfaces.AIHandlersInterface,
+	warningHandlers interfaces.WarningHandlersInterface,
+) *CallbackHandlers {
 	return &CallbackHandlers{
-		topicHandlers:   NewTopicHandlers(messageService, topicService),
-		warningHandlers: NewWarningHandlers(messageService),
-		aiHandlers:      NewAIHandlers(messageService, topicService, aiService),
-		messageService:  messageService,
+		TopicHandlers:   topicHandlers,
+		WarningHandlers: warningHandlers,
+		AIHandlers:      aiHandlers,
+		MessageService:  messageService,
 	}
 }
 
 // HandleCallbackQuery routes callback queries to appropriate handlers
 func (ch *CallbackHandlers) HandleCallbackQuery(update *gotgbot.Update) error {
-	log.Printf("[CallbackHandlers] Handling callback query: %s", update.CallbackQuery.Data)
-
 	callbackData := update.CallbackQuery.Data
+	chatID := update.CallbackQuery.Message.Chat.Id
+	logutils.Info("HandleCallbackQuery", "chatID", chatID, "callbackData", callbackData)
 
 	// Answer the callback query to remove the loading state
-	err := ch.messageService.AnswerCallbackQuery(update.CallbackQuery.Id, &gotgbot.AnswerCallbackQueryOpts{
+	err := ch.MessageService.AnswerCallbackQuery(update.CallbackQuery.Id, &gotgbot.AnswerCallbackQueryOpts{
 		Text: "Processing...",
 	})
 	if err != nil {
-		log.Printf("[CallbackHandlers] Error answering callback query: %v", err)
+		logutils.Error("HandleCallbackQuery: Error answering callback query", err, "chatID", chatID, "callbackData", callbackData)
+	} else {
+		logutils.Success("HandleCallbackQuery: Callback query answered", "chatID", chatID, "callbackData", callbackData)
 	}
 
 	// Special handling for warning callbacks
-	if ch.warningHandlers.IsWarningCallback(callbackData) {
-		return ch.warningHandlers.HandleWarningOkCallback(update)
+	if ch.WarningHandlers.IsWarningCallback(callbackData) {
+		logutils.Info("HandleCallbackQuery: Handling warning callback", "chatID", chatID, "callbackData", callbackData)
+		err = ch.WarningHandlers.HandleWarningOkCallback(update)
+		if err != nil {
+			logutils.Error("HandleCallbackQuery: Error handling warning callback", err, "chatID", chatID, "callbackData", callbackData)
+		} else {
+			logutils.Success("HandleCallbackQuery: Warning callback handled", "chatID", chatID, "callbackData", callbackData)
+		}
+		return err
 	}
 
 	// Get original message from topic handlers
-	originalMsg := ch.topicHandlers.messageStore[callbackData]
+	originalMsg := ch.TopicHandlers.GetMessageByCallbackData(callbackData)
 	if originalMsg == nil {
-		_, err := ch.messageService.SendMessage(update.CallbackQuery.From.Id, config.ErrorMessageNotFound, nil)
+		logutils.Warn("HandleCallbackQuery: Original message not found", "chatID", chatID, "callbackData", callbackData)
+		_, err := ch.MessageService.SendMessage(update.CallbackQuery.From.Id, config.ErrorMessageNotFound, nil)
 		if err != nil {
-			log.Printf("[CallbackHandlers] Error sending error message: %v", err)
+			logutils.Error("HandleCallbackQuery: Error sending error message", err, "chatID", chatID, "callbackData", callbackData)
+		} else {
+			logutils.Success("HandleCallbackQuery: Error message sent", "chatID", chatID, "callbackData", callbackData)
 		}
 		return nil
 	}
@@ -67,43 +84,57 @@ func (ch *CallbackHandlers) HandleCallbackQuery(update *gotgbot.Update) error {
 	// Route to appropriate handler based on callback data
 	switch {
 	case strings.HasPrefix(callbackData, config.CallbackPrefixCreateNewFolder):
-		return ch.topicHandlers.HandleNewTopicCreationRequest(update, originalMsg)
+		logutils.Info("HandleCallbackQuery: Routing to NewTopicCreationRequest", "chatID", chatID, "callbackData", callbackData)
+		err = ch.TopicHandlers.HandleNewTopicCreationRequest(update, originalMsg)
 	case strings.HasPrefix(callbackData, config.CallbackPrefixRetry):
-		return ch.aiHandlers.HandleRetryCallback(update, originalMsg)
+		logutils.Info("HandleCallbackQuery: Routing to RetryCallback", "chatID", chatID, "callbackData", callbackData)
+		err = ch.AIHandlers.HandleRetryCallback(update, originalMsg)
 	case strings.HasPrefix(callbackData, config.CallbackPrefixShowAllTopics):
-		return ch.topicHandlers.HandleShowAllTopicsCallback(update, originalMsg)
+		logutils.Info("HandleCallbackQuery: Routing to ShowAllTopicsCallback", "chatID", chatID, "callbackData", callbackData)
+		err = ch.TopicHandlers.HandleShowAllTopicsCallback(update, originalMsg)
 	case callbackData == config.CallbackDataCreateTopicMenu:
-		return ch.topicHandlers.HandleCreateTopicMenuCallback(update, originalMsg)
+		logutils.Info("HandleCallbackQuery: Routing to HandleCreateTopicMenuCallback", "chatID", chatID, "callbackData", callbackData)
+		err = ch.TopicHandlers.HandleCreateTopicMenuCallback(update, originalMsg)
 	case callbackData == config.CallbackDataShowAllTopicsMenu:
-		return ch.topicHandlers.HandleShowAllTopicsMenuCallback(update, originalMsg)
+		logutils.Info("HandleCallbackQuery: Routing to HandleShowAllTopicsMenuCallback", "chatID", chatID, "callbackData", callbackData)
+		err = ch.TopicHandlers.HandleShowAllTopicsMenuCallback(update, originalMsg)
 	case strings.HasPrefix(callbackData, config.CallbackPrefixBackToSuggestions):
-		return ch.aiHandlers.HandleBackToSuggestionsCallback(update, originalMsg)
+		logutils.Info("HandleCallbackQuery: Routing to HandleBackToSuggestionsCallback", "chatID", chatID, "callbackData", callbackData)
+		err = ch.AIHandlers.HandleBackToSuggestionsCallback(update, originalMsg)
 	default:
-		return ch.topicHandlers.HandleTopicSelectionCallback(update, originalMsg, callbackData)
+		logutils.Warn("HandleCallbackQuery: Routing to HandleTopicSelectionCallback", "chatID", chatID, "callbackData", callbackData)
+		err = ch.TopicHandlers.HandleTopicSelectionCallback(update, originalMsg, callbackData)
 	}
+	if err != nil {
+		logutils.Error("HandleCallbackQuery: HandlerError", err, "chatID", chatID, "callbackData", callbackData)
+	} else {
+		logutils.Success("HandleCallbackQuery", "chatID", chatID, "callbackData", callbackData)
+	}
+
+	return err
 }
 
 // IsRecentlyMovedMessage checks if message was recently moved
 func (ch *CallbackHandlers) IsRecentlyMovedMessage(messageID int64) bool {
-	return ch.topicHandlers.IsRecentlyMovedMessage(messageID)
+	return ch.TopicHandlers.IsRecentlyMovedMessage(messageID)
 }
 
 // MarkMessageAsMoved marks message as moved
 func (ch *CallbackHandlers) MarkMessageAsMoved(messageID int64) {
-	ch.topicHandlers.MarkMessageAsMoved(messageID)
+	ch.TopicHandlers.MarkMessageAsMoved(messageID)
 }
 
 // CleanupMovedMessage cleans up moved message tracking
 func (ch *CallbackHandlers) CleanupMovedMessage(messageID int64) {
-	ch.topicHandlers.CleanupMovedMessage(messageID)
+	ch.TopicHandlers.CleanupMovedMessage(messageID)
 }
 
 // IsWaitingForTopicName checks if user is waiting for topic name
 func (ch *CallbackHandlers) IsWaitingForTopicName(userID int64) bool {
-	return ch.topicHandlers.WaitingForTopicName[userID].ChatId != 0
+	return ch.TopicHandlers.IsWaitingForTopicName(userID)
 }
 
 // HandleTopicNameEntry delegates to topic handlers
 func (ch *CallbackHandlers) HandleTopicNameEntry(update *gotgbot.Update) error {
-	return ch.topicHandlers.HandleTopicNameEntry(update)
+	return ch.TopicHandlers.HandleTopicNameEntry(update)
 }
