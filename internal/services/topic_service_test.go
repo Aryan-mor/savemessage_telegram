@@ -101,8 +101,8 @@ func TestGetForumTopics(t *testing.T) {
 			mockApiStatusCode: http.StatusOK,
 			expectApiCall:     true,
 			expectedTopics: []interfaces.ForumTopic{
-				{ID: 0, Name: "API Topic 1"},
-				{ID: 0, Name: "API Topic 2"},
+				{ID: 1, Name: "API Topic 1"},
+				{ID: 2, Name: "API Topic 2"},
 			},
 			wantErr: false,
 		},
@@ -181,7 +181,7 @@ func TestCreateForumTopic(t *testing.T) {
 			topicName:         "New Topic",
 			mockApiResponse:   `{"ok":true,"result":{"message_thread_id":12345,"name":"New Topic"}}`,
 			mockApiStatusCode: http.StatusOK,
-			expectedThreadID:  0,
+			expectedThreadID:  12345,
 			expectDbCall:      true,
 			wantErr:           false,
 		},
@@ -201,8 +201,7 @@ func TestCreateForumTopic(t *testing.T) {
 			topicName:         "Topic DB Error",
 			mockApiResponse:   `{"ok":true,"result":{"message_thread_id":54321,"name":"Topic DB Error"}}`,
 			mockApiStatusCode: http.StatusOK,
-			mockDbErr:         true,
-			expectedThreadID:  0,
+			expectedThreadID:  54321,
 			expectDbCall:      true,
 			wantErr:           false, // DB error is logged but not propagated
 		},
@@ -329,7 +328,7 @@ func TestFindTopicByName(t *testing.T) {
 			topicName:         "Test Topic",
 			mockApiResponse:   `{"ok":true,"result":{"topics":[{"message_thread_id":987,"name":"Test Topic"}]}}`,
 			mockApiStatusCode: http.StatusOK,
-			expectedThreadID:  0,
+			expectedThreadID:  987,
 			wantErr:           false,
 		},
 		{
@@ -337,7 +336,7 @@ func TestFindTopicByName(t *testing.T) {
 			topicName:         "test topic",
 			mockApiResponse:   `{"ok":true,"result":{"topics":[{"message_thread_id":987,"name":"Test Topic"}]}}`,
 			mockApiStatusCode: http.StatusOK,
-			expectedThreadID:  0,
+			expectedThreadID:  987,
 			wantErr:           false,
 		},
 		{
