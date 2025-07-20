@@ -8,6 +8,6 @@ type TopicServiceInterface interface {
 }
 
 type ForumTopic struct {
-	Name string
-	ID   int64
+	Name string `json:"name"`
+	ID   int64  `json:"message_thread_id"`
 }

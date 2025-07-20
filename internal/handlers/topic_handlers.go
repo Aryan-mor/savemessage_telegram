@@ -16,12 +16,16 @@ import (
 type TopicHandlers struct {
 	messageService        interfaces.MessageServiceInterface
 	topicService          interfaces.TopicServiceInterface
-	messageStore          map[string]*gotgbot.Message
-	keyboardMessageStore  map[string]int
+	MessageStore          map[string]*gotgbot.Message
+	KeyboardMessageStore  map[string]int
 	WaitingForTopicName   map[int64]TopicCreationContext
-	originalMessageStore  map[int64]*gotgbot.Message
-	recentlyMovedMessages map[int64]bool
+	OriginalMessageStore  map[int64]*gotgbot.Message
+	RecentlyMovedMessages map[int64]bool
 	keyboardBuilder       *KeyboardBuilder
+
+	// For testability: allow configurable delays
+	MessageAutoDeleteDelay  time.Duration
+	ConfirmationDeleteDelay time.Duration
 
 	// Mockable funcs for testing
 	HandleNewTopicCreationRequestFunc   func(update *gotgbot.Update, originalMsg *gotgbot.Message) error
@@ -39,11 +43,11 @@ func NewTopicHandlers(messageService interfaces.MessageServiceInterface, topicSe
 	return &TopicHandlers{
 		messageService:        messageService,
 		topicService:          topicService,
-		messageStore:          make(map[string]*gotgbot.Message),
-		keyboardMessageStore:  make(map[string]int),
+		MessageStore:          make(map[string]*gotgbot.Message),
+		KeyboardMessageStore:  make(map[string]int),
 		WaitingForTopicName:   make(map[int64]TopicCreationContext),
-		originalMessageStore:  make(map[int64]*gotgbot.Message),
-		recentlyMovedMessages: make(map[int64]bool),
+		OriginalMessageStore:  make(map[int64]*gotgbot.Message),
+		RecentlyMovedMessages: make(map[int64]bool),
 		keyboardBuilder:       NewKeyboardBuilder(),
 	}
 }
@@ -72,12 +76,12 @@ func (th *TopicHandlers) HandleNewTopicCreationRequest(update *gotgbot.Update, o
 	}
 
 	// Store the original message for this user
-	th.originalMessageStore[update.CallbackQuery.From.Id] = originalMsg
+	th.OriginalMessageStore[update.CallbackQuery.From.Id] = originalMsg
 
 	// Delete the keyboard message
-	if keyboardMsgId, exists := th.keyboardMessageStore[update.CallbackQuery.Data]; exists {
+	if keyboardMsgId, exists := th.KeyboardMessageStore[update.CallbackQuery.Data]; exists {
 		th.messageService.DeleteMessage(originalMsg.Chat.Id, keyboardMsgId)
-		delete(th.keyboardMessageStore, update.CallbackQuery.Data)
+		delete(th.KeyboardMessageStore, update.CallbackQuery.Data)
 	}
 
 	logutils.Success("HandleNewTopicCreationRequest", "chatID", originalMsg.Chat.Id)
@@ -145,7 +149,7 @@ func (th *TopicHandlers) HandleTopicNameEntry(update *gotgbot.Update) error {
 	}
 
 	// Copy the original user message to the new topic
-	if origMsg, ok := th.originalMessageStore[update.Message.From.Id]; ok && threadID != 0 {
+	if origMsg, ok := th.OriginalMessageStore[update.Message.From.Id]; ok && threadID != 0 {
 		_, err := th.messageService.CopyMessageToTopicWithResult(ctx.ChatId, origMsg.Chat.Id, int(origMsg.MessageId), int(threadID))
 		if err != nil {
 			logutils.Error("HandleTopicNameEntry: CopyMessageError", err, "chatID", ctx.ChatId)
@@ -171,7 +175,11 @@ func (th *TopicHandlers) HandleTopicNameEntry(update *gotgbot.Update) error {
 
 			// Delete the original message from General after a short delay
 			go func(chatID int64, messageID int) {
-				time.Sleep(config.DefaultMessageAutoDeleteDelay)
+				delay := th.MessageAutoDeleteDelay
+				if delay == 0 {
+					delay = config.DefaultMessageAutoDeleteDelay
+				}
+				time.Sleep(delay)
 				_ = th.messageService.DeleteMessage(chatID, messageID)
 			}(origMsg.Chat.Id, int(origMsg.MessageId))
 		}
@@ -201,17 +209,37 @@ func (th *TopicHandlers) HandleTopicSelectionCallback(update *gotgbot.Update, or
 	// Find the topic
 	threadID, err := th.topicService.FindTopicByName(originalMsg.Chat.Id, topicName)
 	if err != nil {
-		logutils.Error("HandleTopicSelectionCallback: FindTopicError", err, "chatID", originalMsg.Chat.Id)
-		_, sendErr := th.messageService.SendMessage(originalMsg.Chat.Id, config.ErrorMessageNotFound, &gotgbot.SendMessageOpts{
-			MessageThreadId: originalMsg.MessageThreadId,
-		})
-		if sendErr != nil {
-			logutils.Error("HandleTopicSelectionCallback: SendMessageError", sendErr, "chatID", originalMsg.Chat.Id)
+		// If topic not found, try to create it (AI suggestion case)
+		if strings.Contains(err.Error(), "topic not found") {
+			logutils.Warn("HandleTopicSelectionCallback: Topic not found, creating new topic", "chatID", originalMsg.Chat.Id, "topicName", topicName)
+			threadID, err = th.topicService.CreateForumTopic(originalMsg.Chat.Id, topicName)
+			if err != nil || threadID == 0 {
+				logutils.Error("HandleTopicSelectionCallback: CreateTopicError", err, "chatID", originalMsg.Chat.Id, "topicName", topicName)
+				_, sendErr := th.messageService.SendMessage(originalMsg.Chat.Id, config.ErrorMessageCreateFailed, &gotgbot.SendMessageOpts{
+					MessageThreadId: originalMsg.MessageThreadId,
+				})
+				if sendErr != nil {
+					logutils.Error("HandleTopicSelectionCallback: SendMessageError", sendErr, "chatID", originalMsg.Chat.Id)
+				}
+				return err
+			}
+			// Optionally, send topic name as first message in new topic (like in HandleTopicNameEntry)
+			_, _ = th.messageService.SendMessage(originalMsg.Chat.Id, topicName, &gotgbot.SendMessageOpts{
+				MessageThreadId: threadID,
+			})
+		} else {
+			logutils.Error("HandleTopicSelectionCallback: FindTopicError", err, "chatID", originalMsg.Chat.Id)
+			_, sendErr := th.messageService.SendMessage(originalMsg.Chat.Id, config.ErrorMessageNotFound, &gotgbot.SendMessageOpts{
+				MessageThreadId: originalMsg.MessageThreadId,
+			})
+			if sendErr != nil {
+				logutils.Error("HandleTopicSelectionCallback: SendMessageError", sendErr, "chatID", originalMsg.Chat.Id)
+			}
+			return err
 		}
-		return err
 	}
 
-	// Copy message to the selected topic
+	// Copy message to the selected (or newly created) topic
 	_, err = th.messageService.CopyMessageToTopicWithResult(originalMsg.Chat.Id, originalMsg.Chat.Id, int(originalMsg.MessageId), int(threadID))
 	if err != nil {
 		logutils.Error("HandleTopicSelectionCallback: CopyMessageError", err, "chatID", originalMsg.Chat.Id)
@@ -239,7 +267,7 @@ func (th *TopicHandlers) HandleTopicSelectionCallback(update *gotgbot.Update, or
 	confirmMsg := config.SuccessMessageSaved + topicName + preview
 
 	// Send confirmation message
-	_, err = th.messageService.SendMessage(originalMsg.Chat.Id, confirmMsg, &gotgbot.SendMessageOpts{
+	confirmMsgObj, err := th.messageService.SendMessage(originalMsg.Chat.Id, confirmMsg, &gotgbot.SendMessageOpts{
 		MessageThreadId: originalMsg.MessageThreadId,
 	})
 	if err != nil {
@@ -247,11 +275,30 @@ func (th *TopicHandlers) HandleTopicSelectionCallback(update *gotgbot.Update, or
 		return err
 	}
 
+	// Delete the 'Choose a folder:' message (the keyboard message)
+	if update.CallbackQuery != nil && update.CallbackQuery.Message != nil {
+		_ = th.messageService.DeleteMessage(update.CallbackQuery.Message.Chat.Id, int(update.CallbackQuery.Message.MessageId))
+	}
+
 	// Delete the original message after a short delay
 	go func(chatID int64, messageID int) {
-		time.Sleep(config.DefaultMessageAutoDeleteDelay)
+		delay := th.MessageAutoDeleteDelay
+		if delay == 0 {
+			delay = config.DefaultMessageAutoDeleteDelay
+		}
+		time.Sleep(delay)
 		_ = th.messageService.DeleteMessage(chatID, messageID)
 	}(originalMsg.Chat.Id, int(originalMsg.MessageId))
+
+	// Delete the confirmation message after 1 minute
+	go func(chatID int64, messageID int) {
+		delay := th.ConfirmationDeleteDelay
+		if delay == 0 {
+			delay = time.Minute
+		}
+		time.Sleep(delay)
+		_ = th.messageService.DeleteMessage(chatID, messageID)
+	}(confirmMsgObj.Chat.Id, int(confirmMsgObj.MessageId))
 
 	logutils.Success("HandleTopicSelectionCallback", "topicName", topicName, "chatID", originalMsg.Chat.Id)
 	return nil
@@ -295,15 +342,15 @@ func (th *TopicHandlers) HandleShowAllTopicsCallback(update *gotgbot.Update, ori
 		// Store message references for all topic buttons
 		for _, topic := range topics {
 			topicCallbackData := topic.Name + "_" + strconv.FormatInt(originalMsg.MessageId, 10)
-			th.messageStore[topicCallbackData] = originalMsg
+			th.MessageStore[topicCallbackData] = originalMsg
 		}
 
 		backCallbackData := config.CallbackPrefixBackToSuggestions + strconv.FormatInt(originalMsg.MessageId, 10)
-		th.messageStore[backCallbackData] = originalMsg
+		th.MessageStore[backCallbackData] = originalMsg
 
 		// Try to update existing message or send new one
 		callbackData := "suggestions_" + strconv.FormatInt(originalMsg.MessageId, 10)
-		if keyboardMsgId, exists := th.keyboardMessageStore[callbackData]; exists {
+		if keyboardMsgId, exists := th.KeyboardMessageStore[callbackData]; exists {
 			_, err = th.messageService.EditMessageText(originalMsg.Chat.Id, int64(keyboardMsgId), config.ChooseFromAllTopicsMessage, &gotgbot.EditMessageTextOpts{
 				ReplyMarkup: *keyboard,
 			})
@@ -320,17 +367,17 @@ func (th *TopicHandlers) HandleShowAllTopicsCallback(update *gotgbot.Update, ori
 					// Store keyboard message ID for all topic buttons
 					for _, topic := range topics {
 						topicCallbackData := topic.Name + "_" + strconv.FormatInt(originalMsg.MessageId, 10)
-						th.keyboardMessageStore[topicCallbackData] = int(newMsg.MessageId)
+						th.KeyboardMessageStore[topicCallbackData] = int(newMsg.MessageId)
 					}
-					th.keyboardMessageStore[backCallbackData] = int(newMsg.MessageId)
+					th.KeyboardMessageStore[backCallbackData] = int(newMsg.MessageId)
 				}
 			} else {
 				// Store keyboard message ID for all topic buttons
 				for _, topic := range topics {
 					topicCallbackData := topic.Name + "_" + strconv.FormatInt(originalMsg.MessageId, 10)
-					th.keyboardMessageStore[topicCallbackData] = keyboardMsgId
+					th.KeyboardMessageStore[topicCallbackData] = keyboardMsgId
 				}
-				th.keyboardMessageStore[backCallbackData] = keyboardMsgId
+				th.KeyboardMessageStore[backCallbackData] = keyboardMsgId
 			}
 		} else {
 			// Send new message with all topics
@@ -344,9 +391,9 @@ func (th *TopicHandlers) HandleShowAllTopicsCallback(update *gotgbot.Update, ori
 				// Store keyboard message ID for all topic buttons
 				for _, topic := range topics {
 					topicCallbackData := topic.Name + "_" + strconv.FormatInt(originalMsg.MessageId, 10)
-					th.keyboardMessageStore[topicCallbackData] = int(newMsg.MessageId)
+					th.KeyboardMessageStore[topicCallbackData] = int(newMsg.MessageId)
 				}
-				th.keyboardMessageStore[backCallbackData] = int(newMsg.MessageId)
+				th.KeyboardMessageStore[backCallbackData] = int(newMsg.MessageId)
 			}
 		}
 	}
@@ -424,7 +471,7 @@ func (th *TopicHandlers) HandleShowAllTopicsMenuCallback(update *gotgbot.Update,
 
 // GetMessageByCallbackData retrieves the original message associated with a callback data.
 func (th *TopicHandlers) GetMessageByCallbackData(callbackData string) *gotgbot.Message {
-	return th.messageStore[callbackData]
+	return th.MessageStore[callbackData]
 }
 
 // IsWaitingForTopicName checks if a user is in the process of creating a new topic.
@@ -436,17 +483,17 @@ func (th *TopicHandlers) IsWaitingForTopicName(userID int64) bool {
 // Helper methods
 func (th *TopicHandlers) cleanupTopicCreation(userID int64) {
 	delete(th.WaitingForTopicName, userID)
-	delete(th.originalMessageStore, userID)
+	delete(th.OriginalMessageStore, userID)
 }
 
 func (th *TopicHandlers) IsRecentlyMovedMessage(messageID int64) bool {
-	return th.recentlyMovedMessages[messageID]
+	return th.RecentlyMovedMessages[messageID]
 }
 
 func (th *TopicHandlers) MarkMessageAsMoved(messageID int64) {
-	th.recentlyMovedMessages[messageID] = true
+	th.RecentlyMovedMessages[messageID] = true
 }
 
 func (th *TopicHandlers) CleanupMovedMessage(messageID int64) {
-	delete(th.recentlyMovedMessages, messageID)
+	delete(th.RecentlyMovedMessages, messageID)
 }

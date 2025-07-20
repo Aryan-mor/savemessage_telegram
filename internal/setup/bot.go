@@ -95,8 +95,9 @@ func InitializeBot(config *BotConfig) (*BotInstance, error) {
 	// Initialize handlers in the correct order
 	commandHandlers := handlers.NewCommandHandlers(messageService, topicService)
 	warningHandlers := handlers.NewWarningHandlers(messageService)
-	aiHandlers := handlers.NewAIHandlers(messageService, topicService, aiService)
+	warningHandlers.BotUserID = bot.User.Id
 	topicHandlers := handlers.NewTopicHandlers(messageService, topicService)
+	aiHandlers := handlers.NewAIHandlers(messageService, topicService, aiService, topicHandlers)
 
 	// This was the key: Inject the concrete handlers
 	callbackHandlers := handlers.NewCallbackHandlers(

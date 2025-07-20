@@ -16,6 +16,9 @@ import (
 type WarningHandlers struct {
 	messageService interfaces.MessageServiceInterface
 
+	// Add BotUserID for self-detection
+	BotUserID int64
+
 	// Mockable funcs for testing
 	HandleNonGeneralTopicMessageFunc func(update *gotgbot.Update) error
 	HandleWarningOkCallbackFunc      func(update *gotgbot.Update) error
@@ -34,6 +37,12 @@ func (wh *WarningHandlers) HandleNonGeneralTopicMessage(update *gotgbot.Update) 
 		return wh.HandleNonGeneralTopicMessageFunc(update)
 	}
 	logutils.Warn("HandleNonGeneralTopicMessage", "chatID", update.Message.Chat.Id, "threadID", update.Message.MessageThreadId, "messageID", update.Message.MessageId)
+
+	// Skip deleting if message is from the bot itself
+	if update.Message.From != nil && update.Message.From.IsBot && wh.BotUserID != 0 && update.Message.From.Id == wh.BotUserID {
+		logutils.Info("HandleNonGeneralTopicMessage: Skipping delete for bot's own message", "chatID", update.Message.Chat.Id, "messageID", update.Message.MessageId)
+		return nil
+	}
 
 	// Delete the user's message immediately
 	err := wh.messageService.DeleteMessage(update.Message.Chat.Id, int(update.Message.MessageId))

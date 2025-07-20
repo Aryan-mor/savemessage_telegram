@@ -5,7 +5,7 @@ import "time"
 // Bot messages and text constants
 const (
 	// Welcome messages
-	WelcomeMessage = "Save Message is your personal assistant inside Telegram.\n\nIt helps you organize your saved messages using Topics and smart suggestions — without using any commands.\nYou can categorize, edit, and retrieve your notes easily with inline buttons.\n\n🛡️ 100% private: all your content stays inside Telegram.\n\nJust write — we'll handle the rest.\n\nFor more info, send /help."
+	WelcomeMessage = "Save Message is your personal assistant inside Telegram.\n\nIt helps you organize your saved messages using Topics and smart suggestions — without using any commands.\nYou can categorize, edit, and retrieve your notes easily with inline buttons.\n\n🛡️ 100% private: all your content stays inside Telegram.\n\nJust write — we'll handle the rest."
 
 	// Help message
 	HelpMessage = `🤖 **Save Message Bot Help**

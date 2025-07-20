@@ -21,6 +21,9 @@ type AIHandlers struct {
 	keyboardMessageStore map[string]int
 	keyboardBuilder      *KeyboardBuilder
 
+	// Add reference to TopicHandlers for cross-storage
+	TopicHandlers *TopicHandlers
+
 	// Mockable funcs for testing
 	HandleGeneralTopicMessageFunc       func(update *gotgbot.Update) error
 	HandleRetryCallbackFunc             func(update *gotgbot.Update, originalMsg *gotgbot.Message) error
@@ -28,7 +31,7 @@ type AIHandlers struct {
 }
 
 // NewAIHandlers creates a new AI handlers instance
-func NewAIHandlers(messageService interfaces.MessageServiceInterface, topicService interfaces.TopicServiceInterface, aiService interfaces.AIServiceInterface) *AIHandlers {
+func NewAIHandlers(messageService interfaces.MessageServiceInterface, topicService interfaces.TopicServiceInterface, aiService interfaces.AIServiceInterface, topicHandlers *TopicHandlers) *AIHandlers {
 	return &AIHandlers{
 		messageService:       messageService,
 		topicService:         topicService,
@@ -36,6 +39,7 @@ func NewAIHandlers(messageService interfaces.MessageServiceInterface, topicServi
 		messageStore:         make(map[string]*gotgbot.Message),
 		keyboardMessageStore: make(map[string]int),
 		keyboardBuilder:      NewKeyboardBuilder(),
+		TopicHandlers:        topicHandlers,
 	}
 }
 
@@ -90,6 +94,17 @@ func (ah *AIHandlers) HandleGeneralTopicMessage(update *gotgbot.Update) error {
 
 		// Store message references for all suggestion buttons
 		ah.storeMessageReferences(msg, suggestions, topics)
+
+		// Also store in TopicHandlers.messageStore for callback lookup
+		if ah.TopicHandlers != nil {
+			for _, folder := range suggestions {
+				callbackData := strings.TrimSpace(folder) + "_" + strconv.FormatInt(msg.MessageId, 10)
+				ah.TopicHandlers.MessageStore[callbackData] = msg
+			}
+			// Also store for create new topic button
+			createCallbackData := config.CallbackPrefixCreateNewFolder + strconv.FormatInt(msg.MessageId, 10)
+			ah.TopicHandlers.MessageStore[createCallbackData] = msg
+		}
 
 		// Update the waiting message with suggestions
 		logutils.Info("HandleGeneralTopicMessage: Updating waiting message", "chatID", msg.Chat.Id, "messageID", waitingMsg.MessageId, "text", config.ChooseFolderMessage)

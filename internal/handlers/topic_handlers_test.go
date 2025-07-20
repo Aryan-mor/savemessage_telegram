@@ -3,12 +3,15 @@ package handlers_test
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"save-message/internal/config"
 	"save-message/internal/interfaces"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/stretchr/testify/assert"
+
+	realhandlers "save-message/internal/handlers"
 )
 
 // Local copy of TopicCreationContext for test visibility
@@ -340,4 +343,69 @@ func TestHandleTopicNameEntry(t *testing.T) {
 			assert.NotContains(t, handlers.WaitingForTopicName, userID)
 		})
 	}
+}
+
+func TestHandleTopicSelectionCallback_DeletesKeyboardAndConfirmation(t *testing.T) {
+	// Regression test: After moving a message, the folder selection and confirmation messages are deleted as expected.
+	var deleted []int
+	var sent []string
+	mockMsgSvc := &MockMessageService{
+		SendMessageFunc: func(chatID int64, text string, opts *gotgbot.SendMessageOpts) (*gotgbot.Message, error) {
+			sent = append(sent, text)
+			// Simulate confirmation message
+			if text == "✅ Message saved to topic: Desserts\n\"Cake\"" {
+				return &gotgbot.Message{MessageId: 555, Chat: gotgbot.Chat{Id: chatID}}, nil
+			}
+			return &gotgbot.Message{MessageId: 999, Chat: gotgbot.Chat{Id: chatID}}, nil
+		},
+		DeleteMessageFunc: func(chatID int64, messageID int) error {
+			deleted = append(deleted, messageID)
+			return nil
+		},
+		CopyMessageToTopicWithResultFunc: func(chatID int64, fromChatID int64, messageID int, messageThreadID int) (*gotgbot.Message, error) {
+			return &gotgbot.Message{MessageId: 1234, Chat: gotgbot.Chat{Id: chatID}}, nil
+		},
+	}
+	mockTopicSvc := &MockTopicService{
+		FindTopicByNameFunc: func(chatID int64, name string) (int64, error) {
+			return 42, nil // Simulate topic exists
+		},
+	}
+
+	realhandlers := realhandlers.NewTopicHandlers(mockMsgSvc, mockTopicSvc)
+	realhandlers.MessageAutoDeleteDelay = 10 * time.Millisecond
+	realhandlers.ConfirmationDeleteDelay = 10 * time.Millisecond
+
+	// Simulate the callback update and original message
+	update := &gotgbot.Update{
+		CallbackQuery: &gotgbot.CallbackQuery{
+			From:    gotgbot.User{Id: 1},
+			Data:    "Desserts_1043",
+			Message: &gotgbot.Message{MessageId: 1044, Chat: gotgbot.Chat{Id: 789}}, // keyboard message
+		},
+	}
+	originalMsg := &gotgbot.Message{MessageId: 1043, Chat: gotgbot.Chat{Id: 789}, Text: "Cake"}
+	realhandlers.MessageStore["Desserts_1043"] = originalMsg
+
+	// Call the handler
+	err := realhandlers.HandleTopicSelectionCallback(update, originalMsg, "Desserts_1043")
+	assert.NoError(t, err)
+
+	// Wait for async deletions to occur
+	time.Sleep(50 * time.Millisecond)
+
+	// The keyboard message should be deleted
+	assert.Contains(t, deleted, 1044, "Should delete the 'Choose a folder:' message")
+	// The original message should be deleted after a delay (simulate)
+	assert.Contains(t, deleted, 1043, "Should delete the original message after move")
+	// The confirmation message should be deleted after a delay (simulate)
+	assert.Contains(t, deleted, 555, "Should delete the confirmation message after 1 minute")
+	// The confirmation message should be sent
+	found := false
+	for _, s := range sent {
+		if s == "✅ Message saved to topic: Desserts\n\"Cake\"" {
+			found = true
+		}
+	}
+	assert.True(t, found, "Should send confirmation message")
 }
