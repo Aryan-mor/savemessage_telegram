@@ -32,6 +32,7 @@ func NewDispatcher(
 
 // HandleUpdate routes an update to the appropriate handler
 func (d *Dispatcher) HandleUpdate(update *gotgbot.Update) error {
+	logutils.Info("Raw update received", "update", update)
 	// Handle nil updates gracefully
 	if update == nil {
 		logutils.Info("HandleUpdate: Received nil update, ignoring")
@@ -39,6 +40,26 @@ func (d *Dispatcher) HandleUpdate(update *gotgbot.Update) error {
 	}
 
 	logutils.Info("HandleUpdate", "updateID", update.UpdateId)
+
+	// Handle my_chat_member (bot added/removed or admin status changed)
+	if update.MyChatMember != nil {
+		chat := update.MyChatMember.Chat
+		from := update.MyChatMember.From
+		logutils.Info("HandleUpdate: my_chat_member event", "chatID", chat.Id, "chatTitle", chat.Title, "fromUser", from.Username, "oldChatMember", update.MyChatMember.OldChatMember, "newChatMember", update.MyChatMember.NewChatMember)
+		// (Welcome message logic temporarily removed until correct status field is confirmed)
+		logutils.Success("HandleUpdate: my_chat_member event processed", "chatID", chat.Id)
+		return nil
+	}
+
+	// Handle chat_member (user added/removed or admin status changed)
+	if update.ChatMember != nil {
+		chat := update.ChatMember.Chat
+		from := update.ChatMember.From
+		logutils.Info("HandleUpdate: chat_member event", "chatID", chat.Id, "chatTitle", chat.Title, "fromUser", from.Username, "oldChatMember", update.ChatMember.OldChatMember, "newChatMember", update.ChatMember.NewChatMember)
+		// TODO: Add any additional handling for user added/removed/admin changes here
+		logutils.Success("HandleUpdate: chat_member event processed", "chatID", chat.Id)
+		return nil
+	}
 
 	// Handle callback queries (button clicks)
 	if update.CallbackQuery != nil {

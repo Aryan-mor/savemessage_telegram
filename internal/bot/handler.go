@@ -2,23 +2,25 @@ package bot
 
 import (
 	"context"
-	"log"
-
 	"save-message/internal/config"
+	"save-message/internal/logutils"
 
 	gotgbot "github.com/PaulSonOfLars/gotgbot/v2"
 )
 
 // Start initializes the bot and begins polling for updates
 func Start(ctx context.Context, cfg *config.Env) error {
+	logutils.Info("Start: entry")
 	bot, err := gotgbot.NewBot(cfg.TelegramBotToken, nil)
 	if err != nil {
+		logutils.Error("Start: failed to create bot", err)
 		return err
 	}
-	log.Printf("Authorized on account %s", bot.User.Username)
+	logutils.Success("Start: bot authorized", "username", bot.User.Username)
 
 	// TODO: Re-implement update polling and topic logic using gotgbot's dispatcher/ext package.
 	// For now, just log that migration is in progress.
-	log.Println("[MIGRATION] gotgbot is installed. Please re-implement update polling and topic logic here.")
+	logutils.Info("Start: migration in progress - gotgbot is installed. Please re-implement update polling and topic logic here.")
+	logutils.Success("Start: exit")
 	return nil
 }

@@ -2,13 +2,13 @@ package setup
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"time"
 
 	"save-message/internal/database"
 	"save-message/internal/handlers"
+	"save-message/internal/logutils"
 	"save-message/internal/router"
 	"save-message/internal/services"
 
@@ -38,17 +38,19 @@ type BotInstance struct {
 
 // LoadConfig loads configuration from environment
 func LoadConfig() (*BotConfig, error) {
-	log.Printf("[Setup] Loading configuration from environment")
+	logutils.Info("LoadConfig: entry")
 
 	_ = godotenv.Load()
 
 	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
 	if botToken == "" {
+		logutils.Error("LoadConfig: TELEGRAM_BOT_TOKEN is not set in .env", nil)
 		return nil, fmt.Errorf("TELEGRAM_BOT_TOKEN is not set in .env")
 	}
 
 	openaiKey := os.Getenv("OPENAI_API_KEY")
 	if openaiKey == "" {
+		logutils.Error("LoadConfig: OPENAI_API_KEY is not set in .env", nil)
 		return nil, fmt.Errorf("OPENAI_API_KEY is not set in .env")
 	}
 
@@ -63,21 +65,23 @@ func LoadConfig() (*BotConfig, error) {
 		DBPath:    dbPath,
 	}
 
-	log.Printf("[Setup] Configuration loaded successfully")
+	logutils.Success("LoadConfig: exit")
 	return config, nil
 }
 
 // InitializeBot creates and initializes all bot components
 func InitializeBot(config *BotConfig) (*BotInstance, error) {
-	log.Printf("[Setup] Initializing bot components")
+	logutils.Info("InitializeBot: entry")
 
 	bot, err := gotgbot.NewBot(config.BotToken, nil)
 	if err != nil {
+		logutils.Error("InitializeBot: failed to create bot", err)
 		return nil, fmt.Errorf("failed to create bot: %v", err)
 	}
 
 	db, err := database.NewDatabase(config.DBPath)
 	if err != nil {
+		logutils.Error("InitializeBot: failed to initialize database", err)
 		return nil, fmt.Errorf("failed to initialize database: %v", err)
 	}
 
@@ -130,14 +134,15 @@ func InitializeBot(config *BotConfig) (*BotInstance, error) {
 		Dispatcher:       dispatcher,
 	}
 
-	log.Printf("[Setup] Bot initialized successfully: %s", bot.User.Username)
+	logutils.Success("InitializeBot: exit", "bot_username", bot.User.Username)
 	return instance, nil
 }
 
 // Cleanup performs cleanup operations
 func (bi *BotInstance) Cleanup() {
-	log.Printf("[Setup] Cleaning up bot instance")
+	logutils.Info("Cleanup: entry")
 	if bi.Database != nil {
 		bi.Database.Close()
 	}
+	logutils.Success("Cleanup: exit")
 }

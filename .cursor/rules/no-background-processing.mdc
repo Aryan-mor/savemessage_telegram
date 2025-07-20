@@ -1,0 +1,33 @@
+---
+description: Prevent background processing – always show full changes before confirmation
+globs: ["**/*.go"]
+alwaysApply: true
+---
+
+# 🚫 No Background Execution or Silent Processing
+
+Cursor must not assume it can perform any task or code transformation in the background without visibility.
+
+## 🔒 Required Behavior
+
+- Do not attempt to “proceed silently” or “apply in the background.”
+- Do not say “I'll now proceed and notify you when it’s done” unless **you show the full code diffs or output at the end.**
+- If a multi-step process is requested (e.g., refactoring, generating tests):
+  - Complete the task fully
+  - Then show **all changes or summary** for final review and approval
+  - Only proceed after the user explicitly approves
+
+## ⚠️ What to Avoid
+
+- No partial updates
+- No “I’m working on it silently” behaviors
+- No assumptions about automatic approvals
+- Avoid stopping after each file unless instructed
+
+## ✅ What’s Allowed
+
+- You may complete long tasks in multiple steps internally
+- But always show **full output at the end**
+- Always require user approval before applying anything
+
+This rule applies to **all files and all features**.

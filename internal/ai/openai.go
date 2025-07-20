@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"save-message/internal/interfaces"
+	"save-message/internal/logutils"
 )
 
 // OpenAIClient implements OpenAI API calls
@@ -27,6 +28,7 @@ func NewOpenAIClient(apiKey string, client interfaces.HTTPClient) *OpenAIClient 
 
 // SuggestFolders sends a message to OpenAI and returns suggested folder names
 func (c *OpenAIClient) SuggestFolders(ctx context.Context, message string, existingFolders []string) ([]string, error) {
+	logutils.Info("SuggestFolders: entry")
 	prompt := buildPrompt(message, existingFolders)
 	requestBody := map[string]interface{}{
 		"model": "gpt-3.5-turbo",
@@ -40,6 +42,7 @@ func (c *OpenAIClient) SuggestFolders(ctx context.Context, message string, exist
 
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(bodyBytes))
 	if err != nil {
+		logutils.Error("SuggestFolders: error creating request", err)
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
 
@@ -48,6 +51,7 @@ func (c *OpenAIClient) SuggestFolders(ctx context.Context, message string, exist
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		logutils.Error("SuggestFolders: error sending request to OpenAI", err)
 		return nil, fmt.Errorf("error sending request to OpenAI: %w", err)
 	}
 	defer resp.Body.Close()
@@ -61,16 +65,16 @@ func (c *OpenAIClient) SuggestFolders(ctx context.Context, message string, exist
 		} `json:"choices"`
 	}
 	if err := json.Unmarshal(respBody, &result); err != nil {
+		logutils.Error("SuggestFolders: OpenAI response decode error", err)
 		return nil, fmt.Errorf("OpenAI response decode error: %w", err)
 	}
 	if len(result.Choices) == 0 {
+		logutils.Error("SuggestFolders: No choices returned from OpenAI", nil)
 		return nil, fmt.Errorf("No choices returned from OpenAI")
 	}
 
-	// Parse the folder suggestions from the response (expecting a comma-separated or list format)
-	// Example: "Folders: Work, Personal, Shopping"
-	// You may want to improve this parsing based on your prompt
 	folders := parseFolders(result.Choices[0].Message.Content)
+	logutils.Success("SuggestFolders: exit", "suggestion_count", len(folders))
 	return folders, nil
 }
 

@@ -16,6 +16,7 @@ import (
 
 	"save-message/internal/ai"
 	"save-message/internal/database"
+	"save-message/internal/logutils"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/joho/godotenv"
@@ -367,6 +368,23 @@ func main() {
 				bot.AnswerCallbackQuery(update.CallbackQuery.Id, &gotgbot.AnswerCallbackQueryOpts{
 					Text: "Processing...",
 				})
+
+				// Handle Help button
+				if callbackData == "show_help" {
+					logutils.Info("main.go: Help button clicked", "userID", update.CallbackQuery.From.Id, "chatID", update.CallbackQuery.Message.Chat.Id)
+					helpText := "How to use Save Message Bot\n\n- Just write your notes or messages in this chat.\n- Use the inline buttons to organize, edit, or retrieve your notes.\n- Everything stays private inside Telegram.\n\nFor more, visit the project README or contact support."
+					msg, err := bot.SendMessage(update.CallbackQuery.Message.Chat.Id, helpText, nil)
+					logutils.Info("main.go: SendMessage response", "msg", msg, "err", err)
+					if err != nil {
+						logutils.Error("main.go: Failed to send help message", err, "chatID", update.CallbackQuery.Message.Chat.Id)
+					} else {
+						logutils.Success("main.go: Help message sent", "chatID", update.CallbackQuery.Message.Chat.Id)
+					}
+					bot.AnswerCallbackQuery(update.CallbackQuery.Id, &gotgbot.AnswerCallbackQueryOpts{
+						Text: "Help sent!",
+					})
+					continue
+				}
 
 				// Special handling for detectMessageOnOtherTopic_ok_ callback
 				if strings.HasPrefix(callbackData, "detectMessageOnOtherTopic_ok_") {
@@ -819,8 +837,21 @@ func main() {
 					}
 				}
 				if botJustJoined {
-					welcome := "It helps you organize your saved messages using Topics and smart suggestions — without using any commands.\nYou can categorize, edit, and retrieve your notes easily with inline buttons.\n\n🛡️ 100% private: all your content stays inside Telegram.\n\nJust write — we'll handle the rest.\n\nFor more info, send /help."
-					bot.SendMessage(update.Message.Chat.Id, welcome, &gotgbot.SendMessageOpts{})
+					logutils.Info("main.go: Bot just joined group, sending welcome message", "chatID", update.Message.Chat.Id)
+					welcome := "It helps you organize your saved messages using Topics and smart suggestions — without using any commands.\nYou can categorize, edit, and retrieve your notes easily with inline buttons.\n\n🛡️ 100% private: all your content stays inside Telegram.\n\nJust write — we'll handle the rest.\n\nClick the Help button below for help."
+					keyboard := &gotgbot.InlineKeyboardMarkup{
+						InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
+							{{Text: "Help", CallbackData: "show_help"}},
+						},
+					}
+					_, err := bot.SendMessage(update.Message.Chat.Id, welcome, &gotgbot.SendMessageOpts{
+						ReplyMarkup: *keyboard,
+					})
+					if err != nil {
+						logutils.Error("main.go: Failed to send welcome message", err, "chatID", update.Message.Chat.Id)
+					} else {
+						logutils.Success("main.go: Welcome message sent", "chatID", update.Message.Chat.Id)
+					}
 					continue
 				}
 
@@ -897,7 +928,7 @@ func main() {
 					// Show topic creation menu when bot is mentioned
 					keyboard := &gotgbot.InlineKeyboardMarkup{
 						InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
-							{{Text: "📝 Create New Topic", CallbackData: "create_topic_menu"}},
+							{{Text: "�� Create New Topic", CallbackData: "create_topic_menu"}},
 							{{Text: "📁 Show All Topics", CallbackData: "show_all_topics_menu"}},
 						},
 					}
