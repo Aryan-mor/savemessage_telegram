@@ -17,6 +17,10 @@ Thumbs.db
 .env
 .env.* 
 
+# SSH keys and deployment files
+github_deploy_key
+github_deploy_key.pub
+
 # bot files
 bot.db
 bot.log
